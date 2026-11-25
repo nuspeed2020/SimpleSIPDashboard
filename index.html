@@ -2039,7 +2039,7 @@
     function populateBenchDropdowns() {
       const s1 = document.getElementById('benchFund1');
       const s2 = document.getElementById('benchFund2');
-      const nonNifty = state.funds.filter((f) => f.code !== '120716' && f.code !== '119062');
+      const nonNifty = state.funds.filter((f) => f.code !== '120716' && f.code !== '149250');
       if (!nonNifty.length) return;
 
       const prev1 = s1.value, prev2 = s2.value;
@@ -2138,11 +2138,14 @@
           label: 'Nifty 50 Benchmark (₹10k Base)',
           data: nVals,
           borderColor: '#facc15',
-          borderDash: [6, 4],
+          backgroundColor: '#facc15',
+          borderDash: [8, 4],
           fill: false,
-          borderWidth: 2.1,
+          borderWidth: 2.8,
           pointRadius: 0,
+          pointHoverRadius: 4,
           tension: 0.18,
+          order: -1,
         });
       }
 
@@ -2735,10 +2738,35 @@
       let completed = 0;
       const results = [];
 
-      // Fetch concurrently in batches of 4 with polite spacing to avoid API rate-limits on fresh loads
-      for (let i = 0; i < targets.length; i += 4) {
-        if (i > 0) await new Promise((r) => setTimeout(r, 120));
-        const batch = targets.slice(i, i + 4);
+      // 1. Fetch Nifty 50 benchmark (120716) FIRST so it never gets rate-limited by batch traffic
+      const niftyCurated = targets.find((t) => t.code === '120716');
+      const otherTargets = targets.filter((t) => t.code !== '120716');
+      let niftyFund = null;
+
+      if (niftyCurated) {
+        try {
+          const p = await MFDataAPI.fetchScheme('120716', forceRefresh);
+          niftyFund = FinanceEngine.analyzeFund(p.meta, p.data, niftyCurated);
+          if (niftyFund) {
+            results.push(niftyFund);
+            completed++;
+            loadingText.textContent = `Synced Nifty 50 benchmark (1 / ${targets.length})...`;
+          }
+        } catch {}
+      }
+
+      // Fallback Nifty 50 Index scheme (Edelweiss Nifty 50 Index Direct Growth: 149250)
+      if (!niftyFund) {
+        try {
+          const p = await MFDataAPI.fetchScheme('149250', false);
+          niftyFund = FinanceEngine.analyzeFund(p.meta, p.data, { shortName: 'Nifty 50 Index', category: 'Index' });
+        } catch {}
+      }
+
+      // 2. Fetch remaining funds in polite batches of 4
+      for (let i = 0; i < otherTargets.length; i += 4) {
+        await new Promise((r) => setTimeout(r, 150));
+        const batch = otherTargets.slice(i, i + 4);
         const batchRes = await Promise.allSettled(
           batch.map(async (item) => {
             const payload = await MFDataAPI.fetchScheme(item.code, forceRefresh);
@@ -2749,18 +2777,6 @@
         );
         for (const r of batchRes) {
           if (r.status === 'fulfilled' && r.value) results.push(r.value);
-        }
-      }
-
-      // Guarantee Nifty 50 benchmark fund (UTI 120716 or fallback HDFC Nifty 50 119062)
-      let niftyFund = results.find((f) => f.code === '120716') || null;
-      if (!niftyFund) {
-        for (const fallbackCode of ['120716', '119062']) {
-          try {
-            const p = await MFDataAPI.fetchScheme(fallbackCode, false);
-            niftyFund = FinanceEngine.analyzeFund(p.meta, p.data, { shortName: 'Nifty 50 Index', category: 'Index' });
-            if (niftyFund) break;
-          } catch {}
         }
       }
 

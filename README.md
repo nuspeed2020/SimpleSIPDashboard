@@ -41,9 +41,9 @@ No build step or API key is required:
 - **Best ₹10,000/Month Mixed SIP Blueprint & Optimal Tenure**:
   - 3 low-overlap 4-fund SIP mixes (**Balanced Core + Growth**, **High-Growth Aggressive**, **Conservative Beginner**) with 1-click budget scaling (`₹5k` / `₹10k` / `₹15k` / `₹25k`) and `+10%/yr Step-Up` toggle.
   - Live blended 5Y SIP XIRR, Sharpe/Max DD, and a **5Y–20Y Tenure Sweet-Spot Matrix** + stacked Invested vs. Gains bar chart.
-- **Indian FinTwit, Live X Timelines & Trending SIP Feed**:
+- **Indian FinTwit & Trending SIP Feed**:
   - **Live Timestamped Feed**: Real-time IST-timestamped posts from Freefincal, Capitalmind, Finshots, India SIP News, and well-liked trending Indian SIP threads (`r/IndiaInvestments` & `r/mutualfunds`).
-  - **Live X / Twitter Timelines**: Embedded dark-mode timelines + 1-click Trending (`min_faves:50`) and Latest Expert SIP tweet searches across 10 respected voices (`@iRadhikaGupta`, `@pattufreefincal`, `@deepakshenoy`, `@rajeevthakkar`, `@Nithin0dha`, `@monikahalan`, `@Actusdei`, `@ValueResearch`, `@dmuthuk`, `@finshots`).
+  - **Core FinTwit Voices (10)**: Actionable SIP frameworks + 1-click Trending (`min_faves:50`) and Latest Expert SIP tweet searches across 10 respected voices (`@iRadhikaGupta`, `@pattufreefincal`, `@deepakshenoy`, `@rajeevthakkar`, `@Nithin0dha`, `@monikahalan`, `@Actusdei`, `@ValueResearch`, `@dmuthuk`, `@finshots`).
 - **Live Real-Time Analytics & Timing Engine**:
   - Auto-syncs (1 min / 5 min / Manual) from `api.mfapi.in` with live ticker and `localStorage` caching.
   - Computes 3Y/5Y/10Y Monthly SIP XIRR (Newton-Raphson), Sharpe, Sortino, Max Drawdown, 14D RSI, 200-DMA, Day 1–28 SIP Date Backtest, and 12-Month Seasonality Heatmap.

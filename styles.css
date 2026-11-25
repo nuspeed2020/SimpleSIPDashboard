@@ -1300,23 +1300,6 @@ th .jargon:hover {
   padding-top: 4px;
 }
 
-.x-embed-wrap {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-
-.x-embed-container {
-  min-height: 360px;
-  max-height: 520px;
-  overflow-y: auto;
-  border-radius: 10px;
-  background: #0f172a;
-  padding: 12px;
-  margin-top: 12px;
-}
-
 /* =========================================================================
    ₹10,000/MONTH MIXED SIP PORTFOLIO BLUEPRINT
    ========================================================================= */

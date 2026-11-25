@@ -364,13 +364,13 @@
       </div>
     </section>
 
-    <!-- Proven Indian FinTwit, Live X Timelines & Trending SIP Feed -->
+    <!-- Proven Indian FinTwit & Trending SIP Feed -->
     <section class="panel" id="fintwitPanel">
       <div class="panel-header">
         <div>
           <div class="panel-title">Indian FinTwit, Latest Expert Posts &amp; Trending SIP Feed</div>
           <div class="panel-subtitle">
-            Live timestamped posts from proven Indian finance educators, well-liked trending SIP threads &amp; official X/Twitter feeds
+            Live timestamped posts from proven Indian finance educators, well-liked trending SIP threads &amp; quick X/Twitter searches
           </div>
         </div>
         <div class="ft-actions">
@@ -394,7 +394,6 @@
       <div class="ft-sub-tabs">
         <div class="pill-group" id="fintwitViewTabs">
           <button class="pill active" data-ftview="live">🕒 Live Timestamped Feed &amp; Trending SIPs</button>
-          <button class="pill" data-ftview="xembed">𝕏 Live X / Twitter Timelines</button>
           <button class="pill" data-ftview="voices">🧠 Core FinTwit Voices (10)</button>
         </div>
 
@@ -423,21 +422,7 @@
         </div>
       </div>
 
-      <!-- View 2: Live Official X / Twitter Timeline Embed -->
-      <div id="ftViewXEmbed" style="display:none;">
-        <div class="x-embed-wrap">
-          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
-            <div class="pill-group" id="xAccountPills"></div>
-            <a id="xDirectProfileLink" class="ft-handle" href="https://x.com/iRadhikaGupta" target="_blank" rel="noopener noreferrer">Open on X ↗</a>
-          </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
-            Note: X (Twitter) requires being signed into x.com in your browser to render embedded live timelines. If X blocks the embed, click <strong>Open on X ↗</strong> or the live search buttons above to view timestamped tweets directly.
-          </p>
-          <div class="x-embed-container" id="xEmbedContainer"></div>
-        </div>
-      </div>
-
-      <!-- View 3: Core FinTwit Frameworks (10 Verified Voices) -->
+      <!-- View 2: Core FinTwit Frameworks (10 Verified Voices) -->
       <div id="ftViewVoices" style="display:none;">
         <div class="fintwit-grid" id="fintwitGrid"></div>
       </div>
@@ -2310,10 +2295,9 @@
       });
     }
 
-    /* ---------- Proven Indian FinTwit, Live Timestamped Feed & X Embeds ---------- */
+    /* ---------- Proven Indian FinTwit & Live Timestamped Feed ---------- */
     let liveSocialPosts = [];
     let liveSocialCat = 'ALL';
-    let xWidgetsLoaded = false;
 
     function formatRelativeIST(dateObj) {
       if (!dateObj || Number.isNaN(dateObj.getTime())) return 'Recent';
@@ -2443,36 +2427,6 @@
           </div>
         </a>
       `).join('');
-    }
-
-    function renderXAccountPills() {
-      const bar = document.getElementById('xAccountPills');
-      bar.innerHTML = FINTWIT_INSIGHTS.map((v, idx) => `
-        <button class="pill ${idx === 0 ? 'active' : ''}" data-xhandle="${v.handle.replace('@', '')}">${v.handle}</button>
-      `).join('');
-    }
-
-    function loadXTimeline(handle) {
-      const container = document.getElementById('xEmbedContainer');
-      const link = document.getElementById('xDirectProfileLink');
-      link.href = `https://x.com/${handle}`;
-      link.textContent = `Open @${handle} on X ↗`;
-
-      container.innerHTML = `
-        <a class="twitter-timeline" data-theme="dark" data-chrome="noheader nofooter transparent" data-height="460" href="https://twitter.com/${handle}?ref_src=twsrc%5Etfw">
-          Loading latest tweets from @${handle}... (Click here to open @${handle} directly on X)
-        </a>
-      `;
-
-      if (!xWidgetsLoaded) {
-        xWidgetsLoaded = true;
-        const s = document.createElement('script');
-        s.src = 'https://platform.twitter.com/widgets.js';
-        s.async = true;
-        document.body.appendChild(s);
-      } else if (window.twttr && window.twttr.widgets) {
-        window.twttr.widgets.load(container);
-      }
     }
 
     function renderFinTwit() {
@@ -2953,7 +2907,7 @@
       renderBenchmarkOverlay();
     });
 
-    // FinTwit View Tabs (Live Timestamped Feed / Live X Timelines / Core Voices)
+    // FinTwit View Tabs (Live Timestamped Feed / Core Voices)
     document.getElementById('fintwitViewTabs').addEventListener('click', (e) => {
       const btn = e.target.closest('.pill');
       if (!btn) return;
@@ -2962,15 +2916,10 @@
       const view = btn.dataset.ftview;
 
       document.getElementById('ftViewLive').style.display = view === 'live' ? 'block' : 'none';
-      document.getElementById('ftViewXEmbed').style.display = view === 'xembed' ? 'block' : 'none';
       document.getElementById('ftViewVoices').style.display = view === 'voices' ? 'block' : 'none';
 
       document.getElementById('liveFeedFilters').style.display = view === 'live' ? 'flex' : 'none';
       document.getElementById('fintwitFilters').style.display = view === 'voices' ? 'flex' : 'none';
-
-      if (view === 'xembed' && !document.getElementById('xEmbedContainer').innerHTML.trim()) {
-        loadXTimeline('iRadhikaGupta');
-      }
     });
 
     // Live Social Feed filter pills & sync button
@@ -2983,15 +2932,6 @@
       renderLiveSocialFeed();
     });
     document.getElementById('refreshSocialBtn').addEventListener('click', fetchLiveSocialFeeds);
-
-    // X / Twitter Account Pill Switcher
-    document.getElementById('xAccountPills').addEventListener('click', (e) => {
-      const btn = e.target.closest('.pill[data-xhandle]');
-      if (!btn) return;
-      document.querySelectorAll('#xAccountPills .pill').forEach((p) => p.classList.remove('active'));
-      btn.classList.add('active');
-      loadXTimeline(btn.dataset.xhandle);
-    });
 
     // FinTwit Insights filter pills
     document.getElementById('fintwitFilters').addEventListener('click', (e) => {
@@ -3032,7 +2972,6 @@
     // Boot
     renderPortals();
     renderFinTwit();
-    renderXAccountPills();
     fetchLiveSocialFeeds();
     loadAllFunds(false);
     scheduleAutoRefresh();

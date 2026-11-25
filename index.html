@@ -1539,17 +1539,22 @@
         if (!forceRefresh && cached && Date.now() - cached.ts < CACHE_TTL_MS && cached.data?.length) {
           return { meta: cached.meta, data: cached.data, fromCache: true };
         }
-        try {
-          const resp = await fetch(`${BASE_URL}/mf/${code}`, { cache: 'no-store' });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const json = await resp.json();
-          if (!json || !json.data || !json.data.length) throw new Error('Empty NAV data');
-          writeCache(code, json);
-          return { meta: json.meta, data: json.data, fromCache: false };
-        } catch (err) {
-          if (cached && cached.data?.length) return { meta: cached.meta, data: cached.data, fromCache: true, stale: true };
-          throw err;
+        let lastErr;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            if (attempt > 0) await new Promise((r) => setTimeout(r, 450 * attempt));
+            const resp = await fetch(`${BASE_URL}/mf/${code}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const json = await resp.json();
+            if (!json || !json.data || !json.data.length) throw new Error('Empty NAV data');
+            writeCache(code, json);
+            return { meta: json.meta, data: json.data, fromCache: false };
+          } catch (err) {
+            lastErr = err;
+          }
         }
+        if (cached && cached.data?.length) return { meta: cached.meta, data: cached.data, fromCache: true, stale: true };
+        throw lastErr;
       }
 
       async function searchSchemes(query) {
@@ -2010,19 +2015,31 @@
     function buildIndexedSeries(fund, cutoffTs, baseAmount = 10000) {
       if (!fund || !fund.series.length) return [];
       const slice = fund.series.filter((p) => p.ts >= cutoffTs);
-      if (slice.length < 2) return [];
-      const baseNav = slice[0].nav;
-      return slice.map((p) => ({
+      const use = slice.length >= 2 ? slice : fund.series;
+      if (use.length < 2) return [];
+      const baseNav = use[0].nav;
+      return use.map((p) => ({
         dateStr: p.dateStr,
         ts: p.ts,
         val: (p.nav / baseNav) * baseAmount,
       }));
     }
 
+    function lookupNearestIndexed(indexedSeries, targetTs) {
+      if (!indexedSeries || !indexedSeries.length) return null;
+      let lo = 0, hi = indexedSeries.length - 1, ans = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (indexedSeries[mid].ts <= targetTs) { ans = mid; lo = mid + 1; }
+        else { hi = mid - 1; }
+      }
+      return ans >= 0 ? indexedSeries[ans].val : indexedSeries[0].val;
+    }
+
     function populateBenchDropdowns() {
       const s1 = document.getElementById('benchFund1');
       const s2 = document.getElementById('benchFund2');
-      const nonNifty = state.funds.filter((f) => f.code !== '120716');
+      const nonNifty = state.funds.filter((f) => f.code !== '120716' && f.code !== '119062');
       if (!nonNifty.length) return;
 
       const prev1 = s1.value, prev2 = s2.value;
@@ -2036,42 +2053,52 @@
     }
 
     function renderBenchmarkOverlay() {
+      const f1 = state.funds.find((f) => f.code === document.getElementById('benchFund1').value) || state.funds[0];
+      const f2 = state.funds.find((f) => f.code === document.getElementById('benchFund2').value) || null;
       const nifty = state.niftyFund;
-      if (!nifty) return;
-      const f1 = state.funds.find((f) => f.code === document.getElementById('benchFund1').value);
-      const f2 = state.funds.find((f) => f.code === document.getElementById('benchFund2').value);
       if (!f1) return;
 
-      const latestTs = nifty.series[nifty.series.length - 1].ts;
+      const anchor = nifty || f1;
+      const latestTs = anchor.series[anchor.series.length - 1].ts;
       const cutoff = new Date(latestTs);
       cutoff.setUTCFullYear(cutoff.getUTCFullYear() - state.benchYears);
       const cutTs = cutoff.getTime();
 
-      const nIdx = buildIndexedSeries(nifty, cutTs, 10000);
+      const nIdx = nifty ? buildIndexedSeries(nifty, cutTs, 10000) : [];
       const f1Idx = buildIndexedSeries(f1, cutTs, 10000);
       const f2Idx = f2 ? buildIndexedSeries(f2, cutTs, 10000) : [];
 
-      const f1Map = new Map(f1Idx.map((p) => [p.dateStr, p.val]));
-      const f2Map = new Map(f2Idx.map((p) => [p.dateStr, p.val]));
+      const timeline = nIdx.length >= 2 ? nIdx : f1Idx;
+      if (timeline.length < 2) return;
 
-      // Align on Nifty trading dates and downsample to ~150 points
-      const aligned = nIdx.filter((p) => f1Map.has(p.dateStr));
-      const step = Math.max(1, Math.floor(aligned.length / 150));
-      const sampled = aligned.filter((_, i) => i % step === 0 || i === aligned.length - 1);
+      const step = Math.max(1, Math.floor(timeline.length / 150));
+      const sampled = timeline.filter((_, i) => i % step === 0 || i === timeline.length - 1);
 
-      const nEnd = sampled.length ? sampled[sampled.length - 1].val : 10000;
-      const f1End = sampled.length ? f1Map.get(sampled[sampled.length - 1].dateStr) : 10000;
-      const f2End = f2 && sampled.length ? f2Map.get(sampled[sampled.length - 1].dateStr) : null;
+      const nVals = nIdx.length ? sampled.map((p) => Number((lookupNearestIndexed(nIdx, p.ts) ?? 10000).toFixed(0))) : [];
+      const f1Vals = sampled.map((p) => Number((lookupNearestIndexed(f1Idx, p.ts) ?? 10000).toFixed(0)));
+      const f2Vals = f2Idx.length ? sampled.map((p) => Number((lookupNearestIndexed(f2Idx, p.ts) ?? 10000).toFixed(0))) : [];
 
-      document.getElementById('bStatNifty').textContent = FinanceEngine.formatINR(nEnd);
+      const nEnd = nVals.length ? nVals[nVals.length - 1] : null;
+      const f1End = f1Vals.length ? f1Vals[f1Vals.length - 1] : 10000;
+      const f2End = f2Vals.length ? f2Vals[f2Vals.length - 1] : null;
+
+      document.getElementById('bStatNifty').textContent = nEnd !== null ? FinanceEngine.formatINR(nEnd) : 'Syncing...';
       document.getElementById('bStatF1Label').textContent = `${f1.shortName} (₹10k Grew To)`;
-      const f1Diff = f1End - nEnd;
-      document.getElementById('bStatF1').innerHTML = `${FinanceEngine.formatINR(f1End)} <small class="${f1Diff >= 0 ? 'pos' : 'neg'}">(${f1Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f1Diff, true)} vs Nifty)</small>`;
+      if (nEnd !== null) {
+        const f1Diff = f1End - nEnd;
+        document.getElementById('bStatF1').innerHTML = `${FinanceEngine.formatINR(f1End)} <small class="${f1Diff >= 0 ? 'pos' : 'neg'}">(${f1Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f1Diff, true)} vs Nifty)</small>`;
+      } else {
+        document.getElementById('bStatF1').textContent = FinanceEngine.formatINR(f1End);
+      }
 
       if (f2 && Number.isFinite(f2End)) {
-        const f2Diff = f2End - nEnd;
         document.getElementById('bStatF2Label').textContent = `${f2.shortName} (₹10k Grew To)`;
-        document.getElementById('bStatF2').innerHTML = `${FinanceEngine.formatINR(f2End)} <small class="${f2Diff >= 0 ? 'pos' : 'neg'}">(${f2Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f2Diff, true)})</small>`;
+        if (nEnd !== null) {
+          const f2Diff = f2End - nEnd;
+          document.getElementById('bStatF2').innerHTML = `${FinanceEngine.formatINR(f2End)} <small class="${f2Diff >= 0 ? 'pos' : 'neg'}">(${f2Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f2Diff, true)})</small>`;
+        } else {
+          document.getElementById('bStatF2').textContent = FinanceEngine.formatINR(f2End);
+        }
       } else {
         document.getElementById('bStatF2Label').textContent = 'Fund 2 Comparison';
         document.getElementById('bStatF2').textContent = 'Select 2nd fund';
@@ -2084,7 +2111,7 @@
       const datasets = [
         {
           label: `${f1.shortName} (₹10k Base)`,
-          data: sampled.map((p) => Number((f1Map.get(p.dateStr) || 10000).toFixed(0))),
+          data: f1Vals,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.08)',
           fill: true,
@@ -2092,34 +2119,34 @@
           pointRadius: 0,
           tension: 0.18,
         },
-        {
+      ];
+
+      if (f2 && f2Vals.length) {
+        datasets.push({
+          label: `${f2.shortName} (₹10k Base)`,
+          data: f2Vals,
+          borderColor: '#38bdf8',
+          fill: false,
+          borderWidth: 2.1,
+          pointRadius: 0,
+          tension: 0.18,
+        });
+      }
+
+      if (nVals.length) {
+        datasets.push({
           label: 'Nifty 50 Benchmark (₹10k Base)',
-          data: sampled.map((p) => Number(p.val.toFixed(0))),
+          data: nVals,
           borderColor: '#facc15',
           borderDash: [6, 4],
           fill: false,
           borderWidth: 2.1,
           pointRadius: 0,
           tension: 0.18,
-        },
-      ];
-
-      if (f2 && f2Idx.length) {
-        datasets.splice(1, 0, {
-          label: `${f2.shortName} (₹10k Base)`,
-          data: sampled.map((p) => {
-            const v = f2Map.get(p.dateStr);
-            return v !== undefined ? Number(v.toFixed(0)) : null;
-          }),
-          borderColor: '#38bdf8',
-          fill: false,
-          borderWidth: 2.1,
-          pointRadius: 0,
-          tension: 0.18,
-          spanGaps: true,
         });
       }
 
+      if (typeof Chart === 'undefined') return;
       const ctx = document.getElementById('benchOverlayChart').getContext('2d');
       if (state.benchChart) state.benchChart.destroy();
       state.benchChart = new Chart(ctx, {
@@ -2708,9 +2735,10 @@
       let completed = 0;
       const results = [];
 
-      // Fetch concurrently in batches of 5 for snappy loading of all 20 funds
-      for (let i = 0; i < targets.length; i += 5) {
-        const batch = targets.slice(i, i + 5);
+      // Fetch concurrently in batches of 4 with polite spacing to avoid API rate-limits on fresh loads
+      for (let i = 0; i < targets.length; i += 4) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 120));
+        const batch = targets.slice(i, i + 4);
         const batchRes = await Promise.allSettled(
           batch.map(async (item) => {
             const payload = await MFDataAPI.fetchScheme(item.code, forceRefresh);
@@ -2724,9 +2752,21 @@
         }
       }
 
+      // Guarantee Nifty 50 benchmark fund (UTI 120716 or fallback HDFC Nifty 50 119062)
+      let niftyFund = results.find((f) => f.code === '120716') || null;
+      if (!niftyFund) {
+        for (const fallbackCode of ['120716', '119062']) {
+          try {
+            const p = await MFDataAPI.fetchScheme(fallbackCode, false);
+            niftyFund = FinanceEngine.analyzeFund(p.meta, p.data, { shortName: 'Nifty 50 Index', category: 'Index' });
+            if (niftyFund) break;
+          } catch {}
+        }
+      }
+
       if (results.length) {
         state.funds = results;
-        state.niftyFund = results.find((f) => f.code === '120716') || null;
+        state.niftyFund = niftyFund;
         if (state.niftyFund) {
           for (const f of state.funds) {
             f.bench = FinanceEngine.computeBenchmarkStats(f, state.niftyFund);

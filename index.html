@@ -1,0 +1,2985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>India SIP Intelligence — Real-Time Top 20 Mutual Fund Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Smart Viewport-Aware Floating Tooltip -->
+  <div id="globalTooltip" class="global-tooltip" role="tooltip" aria-hidden="true"></div>
+
+  <!-- Live Scrolling AMFI Feed Ticker -->
+  <div class="ticker-bar">
+    <div class="ticker-label" data-term="amfi">
+      <span class="pulse-dot"></span>
+      AMFI LIVE FEED
+    </div>
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-item">Connecting to open AMFI / MFapi.in live NAV feed...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">₹</div>
+        <div>
+          <h1>India <span class="jargon" data-term="sip">SIP</span> Intelligence Dashboard</h1>
+          <p>
+            Real-Time <span class="jargon" data-term="amfi">AMFI</span>
+            <span class="jargon" data-term="direct_plan">Direct</span>-<span class="jargon" data-term="growth_option">Growth</span> Feed •
+            Top 20 Proven SIPs • Backtested Entry Timing
+          </p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="feed-status">
+          <span class="pulse-dot live-green" id="statusDot"></span>
+          <span id="lastUpdated">Syncing AMFI feed...</span>
+        </div>
+        <button id="openGlossaryBtn" class="btn btn-ghost" type="button">📖 Newbie Glossary (45+ Terms)</button>
+        <select id="refreshInterval" class="select-control" title="Auto-refresh frequency">
+          <option value="60000">Auto-Sync: 1 min</option>
+          <option value="300000" selected>Auto-Sync: 5 min</option>
+          <option value="0">Auto-Sync: Manual</option>
+        </select>
+        <button id="refreshBtn" class="btn btn-primary" type="button">↻ Sync Live NAVs</button>
+      </div>
+    </header>
+
+    <!-- Beginner-Friendly Helper Banner -->
+    <div class="newbie-banner">
+      <div>
+        <strong>New to Investing?</strong> Hover (or tap on mobile) any <span class="jargon" data-term="sip">dotted term <span class="jargon-icon">?</span></span>, column header, category tag, or signal badge for a plain-English explanation + simple ₹ example!
+      </div>
+      <button id="bannerGlossaryBtn" class="btn btn-ghost" style="padding:5px 11px; font-size:0.76rem;" type="button">Browse Full A–Z Glossary →</button>
+    </div>
+
+    <!-- Loading Progress Banner -->
+    <div class="loading-bar visible" id="loadingBar">
+      <span id="loadingText">Fetching real-time &amp; 10-year historical NAVs for 20 proven funds from open AMFI API (api.mfapi.in)...</span>
+    </div>
+
+    <!-- Top 4 Summary KPI Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label"><span class="jargon" data-term="timing_signal">Best Entry Opportunity Now <span class="jargon-icon">?</span></span></div>
+        <div class="kpi-value pos" id="kpiBestBuy">—</div>
+        <div class="kpi-sub" id="kpiBestBuySub">Scanning RSI, 200-DMA &amp; 52W drawdowns...</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span class="jargon" data-term="xirr">Highest 5Y SIP XIRR Leader <span class="jargon-icon">?</span></span></div>
+        <div class="kpi-value mono pos" id="kpiTopXirr">—</div>
+        <div class="kpi-sub" id="kpiTopXirrSub">Computing true monthly ₹10k SIP XIRR...</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span class="jargon" data-term="xirr">Top-20 Avg 5Y SIP XIRR <span class="jargon-icon">?</span></span></div>
+        <div class="kpi-value mono" id="kpiAvgXirr">—</div>
+        <div class="kpi-sub" id="kpiAvgXirrSub">Proven Direct-Growth Equity Basket</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label"><span class="jargon" data-term="best_sip_day">Optimal Monthly SIP Window <span class="jargon-icon">?</span></span></div>
+        <div class="kpi-value" id="kpiBestDate">—</div>
+        <div class="kpi-sub" id="kpiBestDateSub">Backtested across Days 1–28 of every month</div>
+      </div>
+    </section>
+
+    <!-- Main Top 20 Proven SIPs Leaderboard -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">
+            Top 20 Proven India Investment <span class="jargon" data-term="sip">SIPs</span>
+            (<span class="jargon" data-term="direct_plan">Direct Plan</span> - <span class="jargon" data-term="growth_option">Growth</span>)
+          </div>
+          <div class="panel-subtitle">Click any column header to sort • Hover any <span class="jargon-icon">?</span> for newbie tips • Click any fund row for deep-dive charts &amp; backtests</div>
+        </div>
+        <div class="search-wrapper">
+          <input
+            type="text"
+            id="schemeSearch"
+            class="input-control"
+            placeholder="+ Search &amp; add any Indian MF (e.g. SBI, Axis, Quant)..."
+            autocomplete="off"
+          />
+          <div class="search-dropdown" id="searchDropdown"></div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="pill-group" id="categoryFilters">
+          <button class="pill active" data-cat="ALL">All (Top 20)</button>
+          <button class="pill" data-cat="Flexi Cap" data-term="cat_flexi">Flexi Cap</button>
+          <button class="pill" data-cat="Mid Cap" data-term="cat_mid">Mid Cap</button>
+          <button class="pill" data-cat="Small Cap" data-term="cat_small">Small Cap</button>
+          <button class="pill" data-cat="Large Cap" data-term="cat_large">Large Cap</button>
+          <button class="pill" data-cat="Large & Mid Cap" data-term="cat_large_mid">Large &amp; Mid</button>
+          <button class="pill" data-cat="Multi Cap" data-term="cat_multi">Multi Cap</button>
+          <button class="pill" data-cat="Index" data-term="cat_index">Index</button>
+          <button class="pill" data-cat="Contra" data-term="cat_contra">Contra</button>
+          <button class="pill" data-cat="Value" data-term="cat_value">Value</button>
+          <button class="pill" data-cat="ELSS" data-term="cat_elss">ELSS (Tax)</button>
+        </div>
+        <div style="font-size: 0.76rem; color: var(--text-muted);">
+          All <span class="jargon" data-term="xirr">SIP XIRR</span> &amp; risk stats computed live from official <span class="jargon" data-term="amfi">AMFI</span> historical <span class="jargon" data-term="nav">NAVs</span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-sort="rank">#</th>
+              <th data-sort="name"><span class="jargon" data-term="mutual_fund">Mutual Fund Scheme <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="nav"><span class="jargon" data-term="nav">NAV <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="dayChange"><span class="jargon" data-term="day_change">1D% <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="cagr1y"><span class="jargon" data-term="cagr">1Y <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="sip3y"><span class="jargon" data-term="xirr">3Y SIP <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="sip5y"><span class="jargon" data-term="xirr">5Y SIP <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="sip10y"><span class="jargon" data-term="xirr">10Y SIP <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="alpha5y"><span class="jargon" data-term="alpha">vs Nifty <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="sharpe"><span class="jargon" data-term="sharpe">Sharpe <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="maxDD"><span class="jargon" data-term="max_dd">Max DD <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="rsi"><span class="jargon" data-term="rsi">RSI <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="bestDay"><span class="jargon" data-term="best_sip_day">Day <span class="jargon-icon">?</span></span></th>
+              <th data-sort="timingScore"><span class="jargon" data-term="timing_signal">Signal <span class="jargon-icon">?</span></span></th>
+              <th class="num" data-sort="score"><span class="jargon" data-term="composite_score">Score <span class="jargon-icon">?</span></span></th>
+            </tr>
+          </thead>
+          <tbody id="fundTableBody">
+            <tr>
+              <td colspan="15" style="text-align:center; padding: 36px; color: var(--text-secondary);">
+                Loading live AMFI mutual fund data for Top 20 SIPs...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Nifty 50 Benchmark Overlay Comparison Panel -->
+    <section class="panel" id="benchmarkPanel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">
+            <span class="jargon" data-term="nifty50">Nifty 50</span> Benchmark Overlay Comparison
+            <span class="jargon-icon" data-term="benchmark_overlay">?</span>
+          </div>
+          <div class="panel-subtitle">
+            See how ₹10,000 invested in any of the Top 20 funds grew vs India’s benchmark
+            <span class="jargon" data-term="nifty50">Nifty 50</span> (using live UTI Nifty 50 Direct-Growth TRI proxy)
+          </div>
+        </div>
+        <div class="pill-group" id="benchRangePills">
+          <button class="pill" data-brange="1">1Y</button>
+          <button class="pill" data-brange="3">3Y</button>
+          <button class="pill active" data-brange="5">5Y</button>
+          <button class="pill" data-brange="10">10Y</button>
+        </div>
+      </div>
+
+      <div class="bench-controls">
+        <div class="bench-pickers">
+          <label style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">Fund 1:</label>
+          <select id="benchFund1" class="select-control"></select>
+          <label style="font-size:0.78rem; color:var(--text-secondary); font-weight:600; margin-left:6px;">Fund 2:</label>
+          <select id="benchFund2" class="select-control"></select>
+        </div>
+        <div style="font-size:0.76rem; color:var(--text-muted);">
+          Dashed gold line = <strong style="color:#facc15;">Nifty 50 Benchmark</strong> • Both curves normalized to ₹10,000 start
+        </div>
+      </div>
+
+      <div class="bench-summary-strip" id="benchSummaryStrip">
+        <div class="bench-stat"><span>Nifty 50 (₹10k Grew To)</span><strong class="mono" id="bStatNifty">—</strong></div>
+        <div class="bench-stat"><span id="bStatF1Label">Fund 1 (₹10k Grew To)</span><strong class="mono pos" id="bStatF1">—</strong></div>
+        <div class="bench-stat"><span id="bStatF2Label">Fund 2 (₹10k Grew To)</span><strong class="mono" style="color:var(--accent);" id="bStatF2">—</strong></div>
+        <div class="bench-stat"><span class="jargon" data-term="beta">3Y Beta vs Nifty 50 <span class="jargon-icon">?</span></span><strong class="mono" id="bStatBeta">—</strong></div>
+      </div>
+
+      <div class="bench-chart-box">
+        <canvas id="benchOverlayChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Best ₹10,000/Month Mixed SIP Portfolio Blueprint & Optimal Tenure -->
+    <section class="panel" id="mixedPortfolioPanel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">
+            Best ₹10,000/Month Mixed <span class="jargon" data-term="sip">SIP</span> Blueprint &amp; Optimal Tenure
+          </div>
+          <div class="panel-subtitle">
+            Diversified 4-fund mixes with low <span class="jargon" data-term="overlap">portfolio overlap</span> — live-weighted using real 5Y <span class="jargon" data-term="xirr">SIP XIRR</span>, <span class="jargon" data-term="sharpe">Sharpe</span> &amp; <span class="jargon" data-term="max_dd">Max DD</span>
+          </div>
+        </div>
+        <div class="pill-group" id="mixProfileTabs">
+          <button class="pill active" data-mix="balanced">⚖️ Balanced Core + Growth (Best)</button>
+          <button class="pill" data-mix="aggressive">🚀 High-Growth Aggressive</button>
+          <button class="pill" data-mix="conservative">🛡️ Conservative Beginner</button>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-bottom: 14px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
+          <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;">Monthly Budget:</span>
+          <div class="pill-group" id="mixBudgetPills">
+            <button class="pill" data-budget="5000">₹5,000</button>
+            <button class="pill active" data-budget="10000">₹10,000</button>
+            <button class="pill" data-budget="15000">₹15,000</button>
+            <button class="pill" data-budget="25000">₹25,000</button>
+          </div>
+          <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600; margin-left:8px;"><span class="jargon" data-term="step_up_sip">Annual Step-Up</span>:</span>
+          <div class="pill-group" id="mixStepUpPills">
+            <button class="pill active" data-step="0">0% Flat</button>
+            <button class="pill" data-step="10">+10%/yr Step-Up</button>
+          </div>
+        </div>
+        <div id="mixRecommendationNote" style="font-size:0.78rem; color:#34d399; font-weight:600;"></div>
+      </div>
+
+      <div class="mix-kpis" id="mixKpis">
+        <div class="bench-stat"><span class="jargon" data-term="xirr">Blended 5Y SIP XIRR</span><strong class="mono pos" id="mixKpiXirr">—</strong></div>
+        <div class="bench-stat"><span class="jargon" data-term="sharpe">Blended Sharpe / Max DD</span><strong class="mono" id="mixKpiRisk">—</strong></div>
+        <div class="bench-stat"><span>Best Balanced Tenure</span><strong class="mono" style="color:var(--accent);" id="mixKpiTenure">—</strong></div>
+        <div class="bench-stat"><span class="jargon" data-term="corpus">12-Yr Est. Corpus</span><strong class="mono pos" id="mixKpiCorpus12">—</strong></div>
+      </div>
+
+      <div class="mix-layout">
+        <!-- Left: Visual Allocation Bar + 4 Fund Cards -->
+        <div>
+          <div class="mix-alloc-bar" id="mixAllocBar"></div>
+          <div class="mix-cards" id="mixCards"></div>
+          <div style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.22); border-radius:10px; padding:11px 13px; font-size:0.78rem; color:#cbd5e1; line-height:1.5;">
+            <strong style="color:#7dd3fc;">Why 10–15 Years Is the Sweet Spot:</strong>
+            In Indian equity history, 3–5 year SIPs can still suffer from a single market downturn, whereas holding a diversified mix for <strong>10–12+ years</strong> historically reduces loss probability to near-zero while letting compounding generate <strong>65–75%+ of your final wealth from profits alone</strong>.
+          </div>
+        </div>
+
+        <!-- Right: Best Balanced Tenure vs Maximum Potential Returns Matrix + Chart -->
+        <div>
+          <div style="font-size:0.82rem; font-weight:700; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Tenure vs Potential Wealth (Live Blended Rate)</span>
+            <span id="mixTenureRateBadge" class="mono pos" style="font-size:0.74rem;"></span>
+          </div>
+          <div class="table-wrap" style="margin-bottom: 12px;">
+            <table class="tenure-table">
+              <thead>
+                <tr>
+                  <th>Tenure</th>
+                  <th class="num">Invested</th>
+                  <th class="num">Est. Corpus</th>
+                  <th class="num">Multiple</th>
+                  <th>Risk / Reward Verdict</th>
+                </tr>
+              </thead>
+              <tbody id="mixTenureBody"></tbody>
+            </table>
+          </div>
+          <div class="chart-box" style="height: 175px;">
+            <canvas id="mixTenureChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Best Time to Invest + Interactive SIP Wealth Calculator -->
+    <section class="two-col">
+      <!-- Best Time to Invest Intelligence -->
+      <div class="panel" style="margin-bottom: 0;">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Best Time to Invest — Live Timing &amp; Dip Radar</div>
+            <div class="panel-subtitle">
+              Top entry opportunities right now ranked by <span class="jargon" data-term="rsi">14D RSI</span>,
+              <span class="jargon" data-term="high_low_52w">% off 52W High</span>,
+              <span class="jargon" data-term="dma200">200-DMA</span> &amp;
+              <span class="jargon" data-term="seasonality">Seasonality</span>
+            </div>
+          </div>
+        </div>
+        <div class="timing-cards" id="timingCards">
+          <div style="color: var(--text-muted); font-size: 0.84rem;">Analyzing technical entry windows...</div>
+        </div>
+      </div>
+
+      <!-- Interactive Step-Up SIP Wealth Simulator -->
+      <div class="panel" style="margin-bottom: 0;">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title"><span class="jargon" data-term="sip">SIP</span> Wealth &amp; <span class="jargon" data-term="step_up_sip">Step-Up</span> Simulator</div>
+            <div class="panel-subtitle">Project your <span class="jargon" data-term="corpus">corpus</span> using any Top-20 fund's real historical <span class="jargon" data-term="xirr">5Y SIP XIRR</span></div>
+          </div>
+        </div>
+
+        <div class="calc-form">
+          <div class="form-field full">
+            <label for="calcFundSelect">Benchmark Fund (auto-fills real 5Y SIP XIRR)</label>
+            <select id="calcFundSelect" class="select-control"></select>
+          </div>
+          <div class="form-field">
+            <label for="calcMonthly"><span class="jargon" data-term="sip">Monthly SIP (₹)</span> <span class="mono" id="calcMonthlyVal">₹10,000</span></label>
+            <input type="range" id="calcMonthly" min="500" max="100000" step="500" value="10000" />
+          </div>
+          <div class="form-field">
+            <label for="calcYears">Horizon (Years) <span class="mono" id="calcYearsVal">10 yrs</span></label>
+            <input type="range" id="calcYears" min="1" max="30" step="1" value="10" />
+          </div>
+          <div class="form-field">
+            <label for="calcRate"><span class="jargon" data-term="xirr">Expected XIRR (%)</span> <span class="mono" id="calcRateVal">18.0%</span></label>
+            <input type="range" id="calcRate" min="6" max="32" step="0.5" value="18" />
+          </div>
+          <div class="form-field">
+            <label for="calcStepUp"><span class="jargon" data-term="step_up_sip">Annual Step-Up (%)</span> <span class="mono" id="calcStepUpVal">10%</span></label>
+            <input type="range" id="calcStepUp" min="0" max="25" step="1" value="10" />
+          </div>
+        </div>
+
+        <div class="calc-results">
+          <div class="calc-stat">
+            <span>Total Invested</span>
+            <strong class="mono" id="resInvested">₹0</strong>
+          </div>
+          <div class="calc-stat">
+            <span>Est. Wealth Gain</span>
+            <strong class="mono pos" id="resGain">₹0</strong>
+          </div>
+          <div class="calc-stat">
+            <span class="jargon" data-term="corpus">Projected Corpus</span>
+            <strong class="mono" style="color: var(--accent);" id="resTotal">₹0</strong>
+          </div>
+        </div>
+
+        <div class="chart-box">
+          <canvas id="sipCalcChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Proven Indian FinTwit, Live X Timelines & Trending SIP Feed -->
+    <section class="panel" id="fintwitPanel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Indian FinTwit, Latest Expert Posts &amp; Trending SIP Feed</div>
+          <div class="panel-subtitle">
+            Live timestamped posts from proven Indian finance educators, well-liked trending SIP threads &amp; official X/Twitter feeds
+          </div>
+        </div>
+        <div class="ft-actions">
+          <a
+            class="btn btn-ghost"
+            style="font-size:0.76rem; padding:6px 11px; text-decoration:none;"
+            href="https://x.com/search?q=(%23SIP%20OR%20%22mutual%20fund%20SIP%22)%20India%20min_faves%3A50&f=top"
+            target="_blank"
+            rel="noopener noreferrer"
+          >🔥 Trending SIP Tweets on X ↗</a>
+          <a
+            class="btn btn-ghost"
+            style="font-size:0.76rem; padding:6px 11px; text-decoration:none;"
+            href="https://x.com/search?q=(from%3AiRadhikaGupta%20OR%20from%3Adeepakshenoy%20OR%20from%3Apattufreefincal%20OR%20from%3ANithin0dha%20OR%20from%3Admuthuk%20OR%20from%3AActusdei%20OR%20from%3AValueResearch%20OR%20from%3Arajeevthakkar%20OR%20from%3Afinshots)%20(SIP%20OR%20%22mutual%20fund%22%20OR%20Nifty)&f=live"
+            target="_blank"
+            rel="noopener noreferrer"
+          >🕒 Latest Expert SIP Tweets on X ↗</a>
+        </div>
+      </div>
+
+      <div class="ft-sub-tabs">
+        <div class="pill-group" id="fintwitViewTabs">
+          <button class="pill active" data-ftview="live">🕒 Live Timestamped Feed &amp; Trending SIPs</button>
+          <button class="pill" data-ftview="xembed">𝕏 Live X / Twitter Timelines</button>
+          <button class="pill" data-ftview="voices">🧠 Core FinTwit Voices (10)</button>
+        </div>
+
+        <div class="pill-group" id="liveFeedFilters">
+          <button class="pill active" data-lfcat="ALL">All Live</button>
+          <button class="pill" data-lfcat="TRENDING">🔥 Well-Liked Trending SIPs</button>
+          <button class="pill" data-lfcat="EXPERT">FinTwit Educators</button>
+          <button class="btn btn-ghost" id="refreshSocialBtn" style="padding:4px 10px; font-size:0.74rem;" type="button">↻ Sync Feed</button>
+        </div>
+
+        <div class="pill-group" id="fintwitFilters" style="display:none;">
+          <button class="pill active" data-ftcat="ALL">All (10)</button>
+          <button class="pill" data-ftcat="SIP Discipline">SIP Discipline</button>
+          <button class="pill" data-ftcat="Benchmarking & Data">Benchmarking &amp; Data</button>
+          <button class="pill" data-ftcat="Risk & Value">Risk &amp; Value</button>
+          <button class="pill" data-ftcat="Beginner Rules">Beginner Rules</button>
+        </div>
+      </div>
+
+      <!-- View 1: Live Timestamped Feed (FinTwit Blogs + Trending Well-Liked Reddit SIPs) -->
+      <div id="ftViewLive">
+        <div class="live-feed-grid" id="liveSocialFeedGrid">
+          <div style="color:var(--text-secondary); font-size:0.84rem; padding:16px;">
+            Fetching live timestamped posts from Freefincal, Capitalmind, Finshots &amp; trending well-liked Indian SIP discussions...
+          </div>
+        </div>
+      </div>
+
+      <!-- View 2: Live Official X / Twitter Timeline Embed -->
+      <div id="ftViewXEmbed" style="display:none;">
+        <div class="x-embed-wrap">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+            <div class="pill-group" id="xAccountPills"></div>
+            <a id="xDirectProfileLink" class="ft-handle" href="https://x.com/iRadhikaGupta" target="_blank" rel="noopener noreferrer">Open on X ↗</a>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">
+            Note: X (Twitter) requires being signed into x.com in your browser to render embedded live timelines. If X blocks the embed, click <strong>Open on X ↗</strong> or the live search buttons above to view timestamped tweets directly.
+          </p>
+          <div class="x-embed-container" id="xEmbedContainer"></div>
+        </div>
+      </div>
+
+      <!-- View 3: Core FinTwit Frameworks (10 Verified Voices) -->
+      <div id="ftViewVoices" style="display:none;">
+        <div class="fintwit-grid" id="fintwitGrid"></div>
+      </div>
+    </section>
+
+    <!-- Free & Open Indian Portals Directory -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Open &amp; Free Indian Mutual Fund Portals</div>
+          <div class="panel-subtitle">
+            Cross-verify live <span class="jargon" data-term="factsheet">factsheets</span>,
+            <span class="jargon" data-term="ter">expense ratios (TER)</span>,
+            <span class="jargon" data-term="overlap">portfolio overlap</span> &amp; execute zero-commission
+            <span class="jargon" data-term="direct_plan">Direct SIPs</span>
+          </div>
+        </div>
+      </div>
+      <div class="portals-grid" id="portalsGrid"></div>
+
+      <div class="disclaimer">
+        <strong>Methodology &amp; Disclaimer:</strong> All <span class="jargon" data-term="nav">NAVs</span>, trailing <span class="jargon" data-term="cagr">CAGRs</span>, monthly ₹10,000 <span class="jargon" data-term="xirr">SIP XIRRs</span> (solved via Newton-Raphson), <span class="jargon" data-term="sharpe">Sharpe</span>/<span class="jargon" data-term="sortino">Sortino</span> ratios (using the 6.8% India <span class="jargon" data-term="gsec">G-Sec</span> benchmark), <span class="jargon" data-term="max_dd">Max Drawdown</span>, <span class="jargon" data-term="dma200">200-DMA</span>, <span class="jargon" data-term="rsi">14-Day RSI</span>, and Day 1–28 SIP timing backtests are calculated live in your browser from official <span class="jargon" data-term="amfi">AMFI</span> India historical data via open API <code>api.mfapi.in</code>. Mutual fund investments are subject to market risks. Historical returns do not guarantee future performance; consult a <span class="jargon" data-term="sebi">SEBI</span>-registered investment adviser before investing.
+      </div>
+    </section>
+  </div>
+
+  <!-- Interactive Fund Deep-Dive Modal -->
+  <div class="modal-backdrop" id="fundModal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <h2 id="modalTitle" style="font-size:1.25rem; font-weight:800;">Fund Name</h2>
+            <span id="modalSignal" class="signal-badge">SIGNAL</span>
+          </div>
+          <p id="modalSub" style="font-size:0.82rem; color: var(--text-secondary); margin-top:4px;"></p>
+        </div>
+        <button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="modal-stats-grid" id="modalStatsGrid"></div>
+
+      <div class="modal-charts">
+        <div class="chart-card">
+          <h4>
+            <span>
+              <span id="modalChartTitle">Historical <span class="jargon" data-term="nav">NAV</span> &amp; <span class="jargon" data-term="dma200">200-DMA</span></span>
+            </span>
+            <span class="pill-group">
+              <button class="pill" id="modalNiftyToggle" type="button" data-term="benchmark_overlay">Overlay Nifty 50</button>
+              <span class="pill-group" id="modalRangePills">
+                <button class="pill" data-range="1">1Y</button>
+                <button class="pill" data-range="3">3Y</button>
+                <button class="pill active" data-range="5">5Y</button>
+                <button class="pill" data-range="10">10Y</button>
+              </span>
+            </span>
+          </h4>
+          <div class="chart-box" style="height: 240px;">
+            <canvas id="modalNavChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h4>
+            <span class="jargon" data-term="best_sip_day">Best SIP Day Backtest (Day 1–28)</span>
+            <span id="modalBestDayLabel" class="mono pos" style="font-size:0.78rem;"></span>
+          </h4>
+          <div class="chart-box" style="height: 240px;">
+            <canvas id="modalDayChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h4>
+          <span class="jargon" data-term="seasonality">Historical Monthly Seasonality (Avg Monthly Return %)</span>
+          <span id="modalSeasonHint" style="font-size:0.75rem; color: var(--text-secondary);"></span>
+        </h4>
+        <div class="seasonality-grid" id="modalSeasonality"></div>
+      </div>
+
+      <div class="portal-links-row" id="modalPortalLinks"></div>
+    </div>
+  </div>
+
+  <!-- Beginner's A-Z Financial Jargon Glossary Modal -->
+  <div class="modal-backdrop" id="glossaryModal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size:1.25rem; font-weight:800;">📖 Beginner's Investing Glossary (India SIP Edition)</h2>
+          <p style="font-size:0.82rem; color: var(--text-secondary); margin-top:4px;">Every acronym, metric, fund category, and timing signal explained in plain English with simple ₹ examples.</p>
+        </div>
+        <button class="modal-close" id="glossaryClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="glossary-controls">
+        <input type="text" id="glossarySearch" class="input-control" style="flex:1; min-width:220px;" placeholder="Search any term (e.g. XIRR, RSI, Sharpe, ELSS, NAV)..." />
+        <div class="pill-group" id="glossaryCatPills">
+          <button class="pill active" data-gcat="ALL">All Terms</button>
+          <button class="pill" data-gcat="Basics">Basics</button>
+          <button class="pill" data-gcat="Returns">Returns</button>
+          <button class="pill" data-gcat="Risk">Risk</button>
+          <button class="pill" data-gcat="Timing">Timing</button>
+          <button class="pill" data-gcat="Categories">Categories</button>
+        </div>
+      </div>
+
+      <div class="glossary-grid" id="glossaryGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       0. COMPREHENSIVE BEGINNER GLOSSARY & SMART TOOLTIP ENGINE (45+ TERMS)
+       ========================================================================= */
+    const GLOSSARY = {
+      // --- BASICS ---
+      sip: {
+        term: 'SIP',
+        full: 'Systematic Investment Plan',
+        cat: 'Basics',
+        desc: 'A disciplined way of investing a fixed amount of money every month into a mutual fund automatically — just like a recurring deposit, but invested in top Indian companies.',
+        example: 'Instead of waiting to save ₹1,20,000, you set up a ₹10,000/month SIP on the 25th. It buys units automatically every month whether the market is up or down.',
+      },
+      mutual_fund: {
+        term: 'Mutual Fund',
+        full: 'Pooled Investment Basket Managed by Professionals',
+        cat: 'Basics',
+        desc: 'A fund that collects money from thousands of everyday investors and buys shares of 30–100+ companies together, managed by a full-time expert fund manager.',
+        example: 'With just ₹500 in one Nifty 50 mutual fund, you instantly own a tiny slice of India’s 50 biggest companies (Reliance, TCS, HDFC Bank, Infosys, etc.).',
+      },
+      amfi: {
+        term: 'AMFI',
+        full: 'Association of Mutual Funds in India',
+        cat: 'Basics',
+        desc: 'The official industry body of all SEBI-registered mutual fund houses in India. It assigns unique 6-digit scheme codes and publishes official daily NAVs every business night.',
+        example: 'Every price you see on this dashboard comes straight from official AMFI records (e.g. code 122639 = Parag Parikh Flexi Cap Direct Growth).',
+      },
+      sebi: {
+        term: 'SEBI',
+        full: 'Securities and Exchange Board of India',
+        cat: 'Basics',
+        desc: 'India’s government financial markets regulator — think of SEBI as the strict "referee" that enforces rules on mutual funds, brokers, and stock exchanges to protect retail investors.',
+        example: 'SEBI mandates strict category rules (e.g. a Large Cap fund MUST invest at least 80% in India’s top 100 companies) and caps how much fee funds can charge.',
+      },
+      direct_plan: {
+        term: 'Direct Plan',
+        full: 'Zero-Commission Mutual Fund Plan',
+        cat: 'Basics',
+        desc: 'Buying a mutual fund directly from the fund house (or zero-commission apps like Kuvera, Zerodha Coin, Groww, MFCentral) without paying a middleman/broker commission.',
+        example: 'A Regular Plan charges ~1% extra yearly commission. On a ₹10,000/month SIP over 20 years, choosing Direct Plan instead of Regular can save you ₹12–15 Lakhs in extra wealth!',
+      },
+      growth_option: {
+        term: 'Growth Option',
+        full: 'Auto-Compounding Plan (vs IDCW / Dividend)',
+        cat: 'Basics',
+        desc: 'All profits earned by the fund stay inside the fund and get reinvested automatically to grow faster. The opposite is "IDCW/Dividend", which pays out cash and slows compounding.',
+        example: 'If your ₹1,00,000 earns ₹15,000 profit in Year 1, the Growth Option keeps all ₹1,15,000 invested so Year 2 earns returns on ₹1,15,000 (compounding!).',
+      },
+      nav: {
+        term: 'NAV',
+        full: 'Net Asset Value (Price of 1 Mutual Fund Unit)',
+        cat: 'Basics',
+        desc: 'The per-unit market price of a mutual fund, updated once every business day after the Indian stock market closes (usually by 9–11 PM IST). A "lower" NAV does NOT mean a fund is cheaper or better!',
+        example: 'If a fund’s NAV is ₹80 and you invest ₹10,000, you receive 125 units (10,000 ÷ 80). If the NAV rises 10% to ₹88, your 125 units are worth ₹11,000.',
+      },
+      day_change: {
+        term: '1D %',
+        full: '1-Day NAV Percentage Change',
+        cat: 'Basics',
+        desc: 'How much the fund’s NAV went up or down compared to the previous trading day. Short-term daily moves are normal noise for long-term SIP investors.',
+        example: 'If yesterday’s NAV was ₹100.00 and today’s NAV is ₹101.20, the 1D % is +1.20%. On red (-1.5%) days, your SIP actually buys units at a discount!',
+      },
+      ter: {
+        term: 'TER / Expense Ratio',
+        full: 'Total Expense Ratio (Annual Management Fee)',
+        cat: 'Basics',
+        desc: 'The small yearly percentage fee charged by the fund house to manage your money. It is deducted silently from the daily NAV — lower TER means you keep more of your returns.',
+        example: 'An Index Fund with 0.20% TER costs only ₹20/year per ₹10,000 invested. Active Direct equity funds usually charge 0.50%–0.90%.',
+      },
+      exit_load: {
+        term: 'Exit Load',
+        full: 'Early Withdrawal Fee',
+        cat: 'Basics',
+        desc: 'A small penalty (usually 1%) charged ONLY if you sell your mutual fund units too quickly (typically within 1 year of buying). Held beyond 1 year, exit load is ₹0.',
+        example: 'If a fund has "1% (<1 yr)" exit load and you withdraw ₹50,000 after 6 months, ₹500 is deducted. Wait 12+ months and you pay ₹0.',
+      },
+      demat: {
+        term: 'Demat',
+        full: 'Dematerialized (Digital) Account',
+        cat: 'Basics',
+        desc: 'An electronic locker (maintained by CDSL or NSDL in India) that stores your shares and mutual funds safely in digital form, like Zerodha Coin.',
+        example: 'Just like a bank account holds your rupees digitally, a Demat account holds your mutual fund units and shares digitally.',
+      },
+      factsheet: {
+        term: 'Factsheet',
+        full: 'Monthly Mutual Fund Report Card',
+        cat: 'Basics',
+        desc: 'An official PDF published every month by the fund house showing top 10 stocks owned, sector weights, fund manager details, expense ratio, and AUM.',
+        example: 'Check a fund’s factsheet on Value Research or the AMC website to see if it holds banks, IT stocks, or pharma companies.',
+      },
+      amc: {
+        term: 'AMC',
+        full: 'Asset Management Company (Fund House)',
+        cat: 'Basics',
+        desc: 'The company that creates and manages mutual fund schemes (e.g., HDFC AMC, SBI Funds Management, PPFAS, Nippon India, Quant).',
+        example: 'In "HDFC Mid-Cap Opportunities Fund", HDFC Mutual Fund is the AMC managing the scheme.',
+      },
+      aum: {
+        term: 'AUM',
+        full: 'Assets Under Management (Total Fund Size)',
+        cat: 'Basics',
+        desc: 'The total market value of all money invested by everyone in that mutual fund. Very tiny AUM (<₹500 Cr) can be risky; huge AUM in small-caps can make buying small stocks harder.',
+        example: 'If a fund has an AUM of ₹60,000 Crore, that is the combined money of lakhs of Indian investors pooled in that single scheme.',
+      },
+
+      // --- RETURNS & SIP MATH ---
+      cagr: {
+        term: 'CAGR',
+        full: 'Compound Annual Growth Rate',
+        cat: 'Returns',
+        desc: 'The smooth, average yearly percentage growth of a ONE-TIME (lump-sum) investment over multiple years, assuming profits are reinvested each year.',
+        example: 'If you invested ₹1,00,000 once and it doubled to ₹2,00,000 in 5 years, your CAGR is 14.87% per year (not 20%/yr, because of compounding!).',
+      },
+      xirr: {
+        term: 'XIRR',
+        full: 'Extended Internal Rate of Return (True SIP Return)',
+        cat: 'Returns',
+        desc: 'The gold-standard, true annualized return for SIPs! Because each monthly installment stays invested for a different number of days, regular CAGR cannot measure SIP returns accurately — XIRR solves for the exact yearly return across every installment.',
+        example: 'If you did a ₹10,000/month SIP for 5 years (₹6,00,000 total invested) and it grew to ₹9,80,000, your SIP XIRR is ~19.8% per year.',
+      },
+      step_up_sip: {
+        term: 'Step-Up SIP',
+        full: 'Auto-Increasing Annual SIP',
+        cat: 'Returns',
+        desc: 'A smart habit of increasing your monthly SIP amount by a fixed percentage (like 10%) every year as your salary or income grows.',
+        example: 'Starting with ₹10,000/month and stepping up 10% yearly (₹11k in Yr 2, ₹12.1k in Yr 3...) can build almost 2x more wealth over 15–20 years than a flat SIP!',
+      },
+      corpus: {
+        term: 'Corpus',
+        full: 'Total Accumulated Wealth',
+        cat: 'Returns',
+        desc: 'The final total amount of money you end up with (Your Invested Principal + All Market Profits Combined) at the end of your investment horizon.',
+        example: 'If you invested ₹12 Lakhs over 10 years and earned ₹16 Lakhs in profit, your final corpus is ₹28 Lakhs.',
+      },
+      rca: {
+        term: 'Rupee Cost Averaging',
+        full: 'Automatic Buy-Low-More, Buy-High-Less Effect',
+        cat: 'Returns',
+        desc: 'The secret superpower of SIPs: because you invest a fixed ₹ amount every month, you automatically buy MORE units when markets crash (cheap) and FEWER units when markets are expensive.',
+        example: 'Month 1: ₹10,000 at NAV ₹100 buys 100 units. Month 2 (market dips): ₹10,000 at NAV ₹80 buys 125 units! Your average cost drops to ₹88.89/unit.',
+      },
+      rolling_returns: {
+        term: 'Rolling Returns',
+        full: 'Consistency Test Across Every Start Date',
+        cat: 'Returns',
+        desc: 'Measures a fund’s 3Y or 5Y return starting on EVERY possible day in history (not just today), revealing whether the fund performs consistently or just got lucky recently.',
+        example: 'A fund with 16% average 5Y rolling return that never fell below 10% in any 5-year window is far more reliable than one with one lucky year.',
+      },
+      alpha: {
+        term: 'Alpha',
+        full: 'Extra Return Above the Market Benchmark',
+        cat: 'Returns',
+        desc: 'Measures a fund manager’s skill: how much extra return the fund generated over its benchmark index (like Nifty 50) after adjusting for risk. Positive Alpha is good!',
+        example: 'If Nifty 50 returned 13% and your Flexi Cap fund returned 17.5% with similar risk, the fund generated roughly +4.5% Alpha.',
+      },
+      beta: {
+        term: 'Beta',
+        full: 'Sensitivity to Stock Market Moves',
+        cat: 'Returns',
+        desc: 'Measures how jumpy a fund is compared to the overall market (Market Beta = 1.0). Below 1.0 means calmer; above 1.0 means wilder swings.',
+        example: 'A fund with Beta 0.85 typically falls only ~8.5% when the Nifty drops 10% — smoother for nervous beginners!',
+      },
+
+      // --- RISK & SAFETY ---
+      sharpe: {
+        term: 'Sharpe Ratio',
+        full: 'Return Earned Per Unit of Risk Taken',
+        cat: 'Risk',
+        desc: 'Measures whether a fund’s high returns came from smart investing or just wild gambling. It compares extra return (above safe 6.8% Indian Govt bonds) divided by volatility. Higher is better!',
+        example: 'Guide: < 0.5 = Weak | 0.5–1.0 = Decent | 1.0–1.5 = Very Good | > 1.5 = Exceptional risk-adjusted performance.',
+      },
+      sortino: {
+        term: 'Sortino Ratio',
+        full: 'Downside-Only Risk-Adjusted Return',
+        cat: 'Risk',
+        desc: 'An upgraded cousin of the Sharpe Ratio! While Sharpe penalizes BOTH upward jumps and downward crashes as "volatility", Sortino ONLY penalizes painful downward drops. Higher is better.',
+        example: 'If Fund A jumps +30% happily (high upside volatility) and rarely crashes, its Sortino Ratio will be very high (> 1.8).',
+      },
+      max_dd: {
+        term: 'Max DD',
+        full: 'Maximum Drawdown (Worst Peak-to-Bottom Drop)',
+        cat: 'Risk',
+        desc: 'The biggest temporary fall the fund suffered from its highest peak to its lowest bottom over the last 3 years. It tells you how much short-term pain you must stomach without panicking.',
+        example: 'A Max DD of -18% means if your portfolio hit ₹1,00,000 at a peak, it temporarily dipped to ₹82,000 during a market correction before recovering.',
+      },
+      volatility: {
+        term: 'Volatility (Std Dev)',
+        full: 'Annualized Standard Deviation (Bumpiness)',
+        cat: 'Risk',
+        desc: 'Measures how wildly a fund’s price swings up and down in a year. Lower % = smoother highway ride; higher % = rollercoaster ride.',
+        example: 'Large Cap / Index funds usually have ~12–14% volatility, while Small Cap funds often have ~18–22% volatility.',
+      },
+      gsec: {
+        term: 'G-Sec (6.8%)',
+        full: 'Indian Government Securities (Risk-Free Benchmark)',
+        cat: 'Risk',
+        desc: 'Bonds issued by the Government of India paying ~6.8% safe interest. We use this as the "zero-risk baseline" when calculating Sharpe & Sortino ratios.',
+        example: 'If a risky equity fund only gives 7% when safe Government bonds pay 6.8%, taking stock-market risk wasn’t worth it!',
+      },
+      overlap: {
+        term: 'Portfolio Overlap',
+        full: 'Duplicate Stocks Owned Across Two Funds',
+        cat: 'Risk',
+        desc: 'The percentage of identical companies held by two different mutual funds. Buying 5 Large Cap funds with 70% overlap gives you false diversification.',
+        example: 'If Fund A and Fund B both hold HDFC Bank, Reliance, and Infosys in big weights, their overlap is high — better to pair a Flexi Cap with a Mid/Small Cap.',
+      },
+
+      // --- TIMING & TECHNICALS ---
+      rsi: {
+        term: '14D RSI',
+        full: '14-Day Relative Strength Index (0 to 100 Speedometer)',
+        cat: 'Timing',
+        desc: 'A popular momentum gauge from 0 to 100 showing if a fund has recently fallen too fast ("on sale") or rallied too fast ("overheated").',
+        example: 'RSI below 38 = Oversold / Sale (great time to add top-up SIP!). RSI 40–65 = Normal healthy zone. RSI above 68 = Heated (stick to regular SIP, skip big lump-sums).',
+      },
+      dma200: {
+        term: '200-DMA',
+        full: '200-Day Moving Average (Long-Term Trend Line)',
+        cat: 'Timing',
+        desc: 'The average NAV of the fund over the last 200 trading days (~10 months). Investors treat it as the "fair long-term price line".',
+        example: 'If a fund’s NAV is ₹100 and its 200-DMA is ₹102 (-2% below average), you are buying at a discount to its 10-month trend. If it is +20% above 200-DMA, it is stretched.',
+      },
+      high_low_52w: {
+        term: '52W High / Low',
+        full: '52-Week (1-Year) Highest & Lowest NAV',
+        cat: 'Timing',
+        desc: 'The highest and lowest price the fund touched in the past 12 months. Seeing "% off 52W High" immediately shows if the fund is currently on a discount.',
+        example: 'If 52W High is ₹100 and today’s NAV is ₹91, it is -9% off its peak — a classic dip-buying opportunity for long-term SIPs.',
+      },
+      best_sip_day: {
+        term: 'Best SIP Day',
+        full: 'Historically Optimal Monthly SIP Date (Day 1–28)',
+        cat: 'Timing',
+        desc: 'Our engine backtests every single date (1st through 28th of the month) over the last 5 years of real AMFI data to find which date historically gave the highest SIP XIRR.',
+        example: 'In India, days around the 24th–28th often slightly outperform because monthly F&O derivatives expiry creates short-term market dips right before month-end.',
+      },
+      fo_expiry: {
+        term: 'F&O Expiry',
+        full: 'Monthly Futures & Options Settlement',
+        cat: 'Timing',
+        desc: 'In India (NSE), monthly stock/index derivative contracts expire near the end of every month, frequently causing brief volatility dips that benefit late-month SIPs.',
+        example: 'Setting your SIP date around the 25th–28th often lets you scoop up units during those brief month-end pullbacks.',
+      },
+      seasonality: {
+        term: 'Seasonality',
+        full: 'Historical Average Return by Calendar Month (Jan–Dec)',
+        cat: 'Timing',
+        desc: 'Shows how a fund historically behaved in each month of the year. Historically red/weak months (like Feb/Mar tax-loss selling or Oct) are often great months to accumulate extra units.',
+        example: 'If March averages -0.8% and July averages +3.1%, March dips have historically been rewarding accumulation months.',
+      },
+      composite_score: {
+        term: 'Composite Score',
+        full: 'All-in-One Proven SIP Quality Rating (0–100)',
+        cat: 'Timing',
+        desc: 'A balanced 0–100 score combining: 5Y & 10Y SIP XIRR (45 pts), Sharpe Ratio risk efficiency (30 pts), Max Drawdown safety (15 pts), and live entry timing attractiveness (10 pts).',
+        example: 'A fund scoring 85+ has delivered strong long-term SIP wealth WITH good risk control — not just lucky 1-year returns.',
+      },
+      timing_signal: {
+        term: 'Entry Timing Signal',
+        full: 'Live Actionable SIP Guidance Badge',
+        cat: 'Timing',
+        desc: 'Combines live 14D RSI, 200-DMA distance, and % off 52W High into one plain-English action: STRONG DIP BUY, GOOD SIP ENTRY, REGULAR SIP, or SIP ONLY (EXTENDED).',
+        example: 'Never stop your SIP on any signal! Use STRONG DIP BUY to add extra top-up money if you have spare cash; on SIP ONLY (EXTENDED), avoid dumping a huge lump-sum all at once.',
+      },
+      sig_buy: {
+        term: 'STRONG DIP BUY',
+        full: 'Attractive Pullback — Top-Up Opportunity',
+        cat: 'Timing',
+        desc: 'Triggered when the fund is down ≥8% from its 52W high, below its 200-DMA, or has RSI ≤ 38. Quality funds rarely go on sale — great time to step-up SIP or add lump-sum top-up.',
+        example: 'If you have ₹20,000 bonus cash sitting in your bank, a STRONG DIP BUY badge signals an attractive entry window.',
+      },
+      sig_good: {
+        term: 'GOOD SIP ENTRY',
+        full: 'Fairly Valued Near Long-Term Trend',
+        cat: 'Timing',
+        desc: 'The fund is trading right around its healthy 200-day average or in a mild 3–8% pullback. Risk-reward is favorable for continuing or starting a fresh SIP.',
+        example: 'Great time to start a brand-new monthly SIP without worrying about buying at an extreme peak.',
+      },
+      sig_neutral: {
+        term: 'REGULAR SIP',
+        full: 'Normal Market Trend — Stay Automated',
+        cat: 'Timing',
+        desc: 'Neither on a steep discount nor wildly overheated. Let your automated monthly SIP keep doing its Rupee Cost Averaging work.',
+        example: 'No action needed — just keep your monthly SIP running on autopilot.',
+      },
+      sig_caution: {
+        term: 'SIP ONLY (EXTENDED)',
+        full: 'Fast Recent Rally — Avoid Big Lump-Sum',
+        cat: 'Timing',
+        desc: 'The fund is stretched far above its 200-DMA (+16%+) or RSI ≥ 68. Keep your regular monthly SIP going, but stagger any big lump-sum via 3–6 monthly installments instead of investing all today.',
+        example: 'Have ₹1,00,000 to invest? Instead of investing all ₹1L today during an extended rally, split it into ₹20,000/month over 5 months.',
+      },
+
+      // --- SEBI FUND CATEGORIES ---
+      cat_flexi: {
+        term: 'Flexi Cap Fund',
+        full: 'Flexible Allocation Across All Company Sizes',
+        cat: 'Categories',
+        desc: 'The fund manager has 100% freedom to shift between Large, Mid, and Small companies depending on where the best bargains are. Ideal "core" first fund for beginners!',
+        example: 'Parag Parikh Flexi Cap & HDFC Flexi Cap are classic all-weather core SIP holdings.',
+      },
+      cat_large: {
+        term: 'Large Cap Fund',
+        full: 'India’s Top 100 Biggest Blue-Chip Companies',
+        cat: 'Categories',
+        desc: 'Must invest at least 80% in India’s 100 largest, most established market leaders (Reliance, HDFC Bank, Infosys, ITC). Lower risk and steadier rides.',
+        example: 'Great for beginners who want steady 12–14% long-term growth with smaller market drops.',
+      },
+      cat_mid: {
+        term: 'Mid Cap Fund',
+        full: 'Fast-Growing Companies Ranked 101 to 250',
+        cat: 'Categories',
+        desc: 'Must invest at least 65% in medium-sized companies that are tomorrow’s potential giants. Higher growth potential than Large Caps, with moderate-to-high ups and downs.',
+        example: 'Best held via SIP for at least 5–7+ years so short-term bumps smooth out.',
+      },
+      cat_small: {
+        term: 'Small Cap Fund',
+        full: 'Emerging Companies Ranked 251 & Beyond',
+        cat: 'Categories',
+        desc: 'Must invest at least 65% in smaller, high-growth businesses. Can deliver the highest 10-year wealth creation in India, but also experiences sharp 20–35% temporary drops!',
+        example: 'Never invest money needed in 2–3 years here. Ideal for patient 7–10+ year SIPs (keep at 20–30% of your total portfolio).',
+      },
+      cat_large_mid: {
+        term: 'Large & Mid Cap Fund',
+        full: 'Balanced 35% Large Cap + 35% Mid Cap Minimum',
+        cat: 'Categories',
+        desc: 'SEBI requires at least 35% in stable Large Caps and 35% in faster-growing Mid Caps. Gives you a built-in stability + growth combo in a single fund.',
+        example: 'Mirae Asset Large & Midcap is a popular one-fund blend for core SIP portfolios.',
+      },
+      cat_multi: {
+        term: 'Multi Cap Fund',
+        full: 'Mandatory 25% Large + 25% Mid + 25% Small Cap',
+        cat: 'Categories',
+        desc: 'Unlike Flexi Cap (which can hold 80% Large Caps), Multi Cap funds MUST always keep at least 25% each in Large, Mid, and Small caps — guaranteeing true all-cap diversification.',
+        example: 'Nippon India Multi Cap gives you automatic exposure to all three segments in one SIP.',
+      },
+      cat_index: {
+        term: 'Index Fund',
+        full: 'Passive Low-Cost Market Mirror (Nifty 50 / Next 50)',
+        cat: 'Categories',
+        desc: 'No stock-picking guesswork — the fund simply copies a stock market index like Nifty 50 (top 50 NSE firms) or Nifty Next 50 (ranks 51–100) at ultra-low fees (~0.2%).',
+        example: 'Warren Buffett & top planners recommend a Nifty 50 Index Fund as the simplest, foolproof starter SIP for any beginner.',
+      },
+      cat_contra: {
+        term: 'Contra Fund',
+        full: 'Contrarian ("Against the Crowd") Strategy',
+        cat: 'Categories',
+        desc: 'Buys strong sectors or companies that the market is temporarily ignoring or pessimistic about, waiting patiently for them to bounce back.',
+        example: 'SBI Contra Fund famously bought PSU banks and energy stocks when nobody wanted them — generating massive 5Y wealth.',
+      },
+      cat_value: {
+        term: 'Value Fund',
+        full: 'Bargain-Hunting Strategy (Buy ₹100 Worth for ₹70)',
+        cat: 'Categories',
+        desc: 'Focuses on buying fundamentally strong companies trading below their true intrinsic worth, offering a "margin of safety" during market crashes.',
+        example: 'ICICI Prudential Value Discovery has one of India’s longest proven multi-decade value track records.',
+      },
+      cat_elss: {
+        term: 'ELSS (Tax Saver)',
+        full: 'Equity Linked Savings Scheme (Section 80C)',
+        cat: 'Categories',
+        desc: 'An equity mutual fund that saves income tax up to ₹1.5 Lakh/year under Section 80C (Old Tax Regime). Has the shortest lock-in (3 years) of any tax-saving option in India.',
+        example: 'Each monthly SIP installment in an ELSS fund is locked for 3 years from its purchase date — which also forces good long-term discipline!',
+      },
+      nifty50: {
+        term: 'Nifty 50 Benchmark',
+        full: 'India’s Flagship 50-Company Stock Market Index (NSE)',
+        cat: 'Basics',
+        desc: 'The benchmark index tracking India’s 50 largest, most liquid companies on the National Stock Exchange. Every active equity fund is judged on whether it beats Nifty 50 over 5–10 years.',
+        example: 'If your active fund gave 15% over 5 years while Nifty 50 gave 16%, you took extra risk for less return — an Index Fund would have been simpler and better!',
+      },
+      benchmark_overlay: {
+        term: 'Benchmark Overlay (₹10,000 Indexed)',
+        full: 'Apples-to-Apples Growth Comparison vs Nifty 50',
+        cat: 'Returns',
+        desc: 'Because every mutual fund has a different NAV (e.g. ₹40 vs ₹400), we rebase all funds and Nifty 50 to start at the exact same ₹10,000 on day 1 so you can visually see which actually grew more!',
+        example: 'If Fund A’s line reaches ₹24,000 while the dashed gold Nifty 50 line reaches ₹19,000 over 5 years, Fund A beat the market by +₹5,000 per ₹10k invested.',
+      },
+    };
+
+    const CATEGORY_TO_TERM = {
+      'Flexi Cap': 'cat_flexi',
+      'Large Cap': 'cat_large',
+      'Mid Cap': 'cat_mid',
+      'Small Cap': 'cat_small',
+      'Large & Mid Cap': 'cat_large_mid',
+      'Multi Cap': 'cat_multi',
+      'Index': 'cat_index',
+      'Contra': 'cat_contra',
+      'Value': 'cat_value',
+      'ELSS': 'cat_elss',
+    };
+
+    const SIGNAL_TO_TERM = {
+      buy: 'sig_buy',
+      good: 'sig_good',
+      neutral: 'sig_neutral',
+      caution: 'sig_caution',
+    };
+
+    /* Smart Viewport-Aware Tooltip Positioning */
+    const TooltipManager = (() => {
+      const el = document.getElementById('globalTooltip');
+      let activeTarget = null;
+
+      function renderContent(entry) {
+        el.innerHTML = `
+          <div class="tt-header">
+            <span class="tt-term">${entry.term}</span>
+            <span class="tt-cat">${entry.cat}</span>
+          </div>
+          <div class="tt-full">${entry.full}</div>
+          <div class="tt-desc">${entry.desc}</div>
+          <div class="tt-example"><strong>Simple Example:</strong> ${entry.example}</div>
+        `;
+      }
+
+      function positionNear(target) {
+        const rect = target.getBoundingClientRect();
+        const ttRect = el.getBoundingClientRect();
+        const pad = 12;
+
+        let left = rect.left + rect.width / 2 - ttRect.width / 2;
+        if (left < pad) left = pad;
+        if (left + ttRect.width > window.innerWidth - pad) {
+          left = window.innerWidth - ttRect.width - pad;
+        }
+
+        let top = rect.bottom + 10;
+        if (top + ttRect.height > window.innerHeight - pad) {
+          top = rect.top - ttRect.height - 10;
+        }
+        if (top < pad) top = pad;
+
+        el.style.left = `${Math.round(left)}px`;
+        el.style.top = `${Math.round(top)}px`;
+      }
+
+      function show(target) {
+        const key = target.getAttribute('data-term');
+        const entry = GLOSSARY[key];
+        if (!entry) return;
+        activeTarget = target;
+        renderContent(entry);
+        el.classList.add('visible');
+        el.setAttribute('aria-hidden', 'false');
+        positionNear(target);
+      }
+
+      function hide() {
+        activeTarget = null;
+        el.classList.remove('visible');
+        el.setAttribute('aria-hidden', 'true');
+      }
+
+      document.addEventListener('mouseover', (e) => {
+        const target = e.target.closest('[data-term]');
+        if (target && target !== activeTarget) show(target);
+      });
+
+      document.addEventListener('mouseout', (e) => {
+        if (!activeTarget) return;
+        const related = e.relatedTarget ? e.relatedTarget.closest('[data-term]') : null;
+        if (related !== activeTarget) hide();
+      });
+
+      window.addEventListener('scroll', hide, { passive: true });
+      window.addEventListener('resize', hide, { passive: true });
+
+      return { show, hide };
+    })();
+
+    /* =========================================================================
+       1. PURE FINANCIAL & QUANTITATIVE ANALYTICS ENGINE
+       ========================================================================= */
+    const FinanceEngine = (() => {
+      const RISK_FREE_RATE = 0.068;
+
+      function parseMFDate(dateStr) {
+        const [dd, mm, yyyy] = dateStr.split('-').map(Number);
+        return new Date(Date.UTC(yyyy, mm - 1, dd));
+      }
+
+      function formatDate(date) {
+        return date.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC',
+        });
+      }
+
+      function formatINR(amount, compact = false) {
+        if (!Number.isFinite(amount)) return '—';
+        if (compact) {
+          const abs = Math.abs(amount);
+          const sign = amount < 0 ? '-' : '';
+          if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2)} Cr`;
+          if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2)} L`;
+          if (abs >= 1e3) return `${sign}₹${(abs / 1e3).toFixed(1)} K`;
+        }
+        return new Intl.NumberFormat('en-IN', {
+          style: 'currency',
+          currency: 'INR',
+          maximumFractionDigits: 0,
+        }).format(amount);
+      }
+
+      function normalizeSeries(rawData) {
+        if (!Array.isArray(rawData) || rawData.length === 0) return [];
+        const series = [];
+        for (let i = rawData.length - 1; i >= 0; i--) {
+          const nav = parseFloat(rawData[i].nav);
+          if (!Number.isFinite(nav) || nav <= 0) continue;
+          const date = parseMFDate(rawData[i].date);
+          if (Number.isNaN(date.getTime())) continue;
+          series.push({ date, dateStr: rawData[i].date, ts: date.getTime(), nav });
+        }
+        return series;
+      }
+
+      function findNavOnOrBefore(series, targetTs, maxGapDays = 15) {
+        let lo = 0, hi = series.length - 1, ans = -1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >> 1;
+          if (series[mid].ts <= targetTs) { ans = mid; lo = mid + 1; }
+          else { hi = mid - 1; }
+        }
+        if (ans === -1) return null;
+        return (targetTs - series[ans].ts) / 86400000 <= maxGapDays ? series[ans] : null;
+      }
+
+      function findNavOnOrAfter(series, targetTs, maxGapDays = 15) {
+        let lo = 0, hi = series.length - 1, ans = -1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >> 1;
+          if (series[mid].ts >= targetTs) { ans = mid; hi = mid - 1; }
+          else { lo = mid + 1; }
+        }
+        if (ans === -1) return null;
+        return (series[ans].ts - targetTs) / 86400000 <= maxGapDays ? series[ans] : null;
+      }
+
+      function computeTrailingCAGR(series, years) {
+        if (series.length < 2) return null;
+        const latest = series[series.length - 1];
+        const target = new Date(latest.ts);
+        target.setUTCFullYear(target.getUTCFullYear() - years);
+        const past = findNavOnOrBefore(series, target.getTime(), 20);
+        if (!past) return null;
+        const actualYears = (latest.ts - past.ts) / (365.25 * 86400000);
+        if (actualYears < years * 0.9) return null;
+        return (Math.pow(latest.nav / past.nav, 1 / actualYears) - 1) * 100;
+      }
+
+      function computeXIRR(cashflows) {
+        if (!cashflows || cashflows.length < 2) return null;
+        const t0 = cashflows[0].ts;
+        const yearFracs = cashflows.map((cf) => (cf.ts - t0) / (365.25 * 86400000));
+        let rate = 0.15;
+        for (let iter = 0; iter < 60; iter++) {
+          let npv = 0, dNpv = 0;
+          for (let i = 0; i < cashflows.length; i++) {
+            const yf = yearFracs[i];
+            const denom = Math.pow(1 + rate, yf);
+            if (!Number.isFinite(denom) || denom === 0) return null;
+            npv += cashflows[i].amount / denom;
+            dNpv -= (yf * cashflows[i].amount) / (denom * (1 + rate));
+          }
+          if (Math.abs(npv) < 1e-6) return rate * 100;
+          if (Math.abs(dNpv) < 1e-10) break;
+          const nextRate = rate - npv / dNpv;
+          if (!Number.isFinite(nextRate) || nextRate <= -0.99 || nextRate > 10) {
+            rate = (rate + 0.1) / 2;
+            continue;
+          }
+          if (Math.abs(nextRate - rate) < 1e-7) return nextRate * 100;
+          rate = nextRate;
+        }
+        return Number.isFinite(rate) && rate > -0.99 && rate < 5 ? rate * 100 : null;
+      }
+
+      function simulateHistoricalSIP(series, years, sipDay = 5, monthlyAmount = 10000) {
+        if (series.length < 30) return null;
+        const latest = series[series.length - 1];
+        const startDate = new Date(latest.ts);
+        startDate.setUTCFullYear(startDate.getUTCFullYear() - years);
+        if (series[0].ts > startDate.getTime() + 45 * 86400000) return null;
+
+        const cashflows = [];
+        let totalUnits = 0, totalInvested = 0;
+        let y = startDate.getUTCFullYear(), m = startDate.getUTCMonth();
+        const endY = latest.date.getUTCFullYear(), endM = latest.date.getUTCMonth();
+
+        while (y < endY || (y === endY && m <= endM)) {
+          const targetTs = Date.UTC(y, m, sipDay);
+          if (targetTs <= latest.ts - 2 * 86400000) {
+            const entry = findNavOnOrAfter(series, targetTs, 10);
+            if (entry && entry.ts < latest.ts) {
+              totalUnits += monthlyAmount / entry.nav;
+              totalInvested += monthlyAmount;
+              cashflows.push({ amount: -monthlyAmount, ts: entry.ts });
+            }
+          }
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+
+        if (cashflows.length < Math.max(6, years * 10)) return null;
+        const currentValue = totalUnits * latest.nav;
+        cashflows.push({ amount: currentValue, ts: latest.ts });
+        const xirr = computeXIRR(cashflows);
+
+        return {
+          xirr,
+          invested: totalInvested,
+          currentValue,
+          gain: currentValue - totalInvested,
+          absReturnPct: ((currentValue - totalInvested) / totalInvested) * 100,
+          installments: cashflows.length - 1,
+        };
+      }
+
+      function analyzeBestSIPDay(series) {
+        const horizon = series.length > 1200 ? 5 : 3;
+        const dayResults = [];
+        let best = { day: 25, xirr: -Infinity };
+        let worst = { day: 1, xirr: Infinity };
+
+        for (let day = 1; day <= 28; day++) {
+          const res = simulateHistoricalSIP(series, horizon, day, 10000);
+          if (res && Number.isFinite(res.xirr)) {
+            dayResults.push({ day, xirr: res.xirr });
+            if (res.xirr > best.xirr) best = { day, xirr: res.xirr };
+            if (res.xirr < worst.xirr) worst = { day, xirr: res.xirr };
+          }
+        }
+        if (dayResults.length === 0) {
+          return { bestDay: 25, bestXirr: null, worstDay: 1, spreadBps: 0, dayResults: [], horizon };
+        }
+        return {
+          bestDay: best.day,
+          bestXirr: best.xirr,
+          worstDay: worst.day,
+          worstXirr: worst.xirr,
+          spreadBps: Math.round((best.xirr - worst.xirr) * 100),
+          dayResults,
+          horizon,
+        };
+      }
+
+      function analyzeMonthlySeasonality(series) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthEnds = new Map();
+        for (const pt of series) {
+          const key = `${pt.date.getUTCFullYear()}-${String(pt.date.getUTCMonth()).padStart(2, '0')}`;
+          monthEnds.set(key, pt);
+        }
+        const ordered = Array.from(monthEnds.values());
+        const buckets = Array.from({ length: 12 }, () => []);
+        for (let i = 1; i < ordered.length; i++) {
+          const ret = ((ordered[i].nav - ordered[i - 1].nav) / ordered[i - 1].nav) * 100;
+          if (Number.isFinite(ret) && Math.abs(ret) < 60) {
+            buckets[ordered[i].date.getUTCMonth()].push(ret);
+          }
+        }
+        const stats = buckets.map((arr, idx) => ({
+          month: months[idx],
+          monthIdx: idx,
+          avgReturn: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+          posRate: arr.length ? (arr.filter((v) => v > 0).length / arr.length) * 100 : 50,
+          samples: arr.length,
+        }));
+        const sorted = [...stats].sort((a, b) => a.avgReturn - b.avgReturn);
+        return { stats, bestAccumMonth: sorted[0], strongestMonth: sorted[sorted.length - 1] };
+      }
+
+      function computeRiskMetrics(series, years = 3) {
+        if (series.length < 60) return { volatility: null, sharpe: null, sortino: null, maxDrawdown: null };
+        const latest = series[series.length - 1];
+        const cutoff = new Date(latest.ts);
+        cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+        const window = series.filter((p) => p.ts >= cutoff.getTime());
+        if (window.length < 40) return { volatility: null, sharpe: null, sortino: null, maxDrawdown: null };
+
+        const dailyReturns = [];
+        let peak = window[0].nav, maxDD = 0;
+        for (let i = 1; i < window.length; i++) {
+          const r = (window[i].nav - window[i - 1].nav) / window[i - 1].nav;
+          if (Number.isFinite(r)) dailyReturns.push(r);
+          if (window[i].nav > peak) peak = window[i].nav;
+          const dd = ((window[i].nav - peak) / peak) * 100;
+          if (dd < maxDD) maxDD = dd;
+        }
+        const n = dailyReturns.length;
+        const mean = dailyReturns.reduce((a, b) => a + b, 0) / n;
+        const variance = dailyReturns.reduce((acc, r) => acc + Math.pow(r - mean, 2), 0) / (n - 1);
+        const annVol = Math.sqrt(variance) * Math.sqrt(252) * 100;
+        const annReturn = mean * 252;
+        const sharpe = annVol > 0 ? (annReturn - RISK_FREE_RATE) / (annVol / 100) : null;
+
+        const dailyRf = RISK_FREE_RATE / 252;
+        const downsideSq = dailyReturns.filter((r) => r < dailyRf).reduce((acc, r) => acc + Math.pow(r - dailyRf, 2), 0);
+        const downsideDev = Math.sqrt(downsideSq / n) * Math.sqrt(252);
+        const sortino = downsideDev > 0 ? (annReturn - RISK_FREE_RATE) / downsideDev : null;
+
+        return { volatility: annVol, sharpe, sortino, maxDrawdown: maxDD };
+      }
+
+      function computeTechnicals(series) {
+        const n = series.length;
+        if (n < 20) return null;
+        const latest = series[n - 1];
+        const prev = series[n - 2];
+        const dayChangePct = ((latest.nav - prev.nav) / prev.nav) * 100;
+
+        const period = 14;
+        let gains = 0, losses = 0;
+        const startIdx = Math.max(1, n - 60);
+        for (let i = startIdx; i < Math.min(startIdx + period, n); i++) {
+          const diff = series[i].nav - series[i - 1].nav;
+          if (diff >= 0) gains += diff; else losses -= diff;
+        }
+        let avgGain = gains / period, avgLoss = losses / period;
+        for (let i = startIdx + period; i < n; i++) {
+          const diff = series[i].nav - series[i - 1].nav;
+          avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period;
+          avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+        }
+        const rsi14 = 100 - 100 / (1 + (avgLoss === 0 ? 100 : avgGain / avgLoss));
+
+        const sma = (len) => {
+          if (n < len) return null;
+          let sum = 0;
+          for (let i = n - len; i < n; i++) sum += series[i].nav;
+          return sum / len;
+        };
+        const dma50 = sma(50);
+        const dma200 = sma(200);
+        const distFrom200DMA = dma200 ? ((latest.nav - dma200) / dma200) * 100 : null;
+
+        const oneYearAgo = latest.ts - 365 * 86400000;
+        let high52 = -Infinity, low52 = Infinity;
+        for (let i = n - 1; i >= 0 && series[i].ts >= oneYearAgo; i--) {
+          if (series[i].nav > high52) high52 = series[i].nav;
+          if (series[i].nav < low52) low52 = series[i].nav;
+        }
+        const pctFrom52High = ((latest.nav - high52) / high52) * 100;
+
+        let signal = 'REGULAR SIP', signalTone = 'neutral', timingScore = 60;
+        let timingReason = 'Trading in normal trend channel; continue regular monthly SIP.';
+
+        if (rsi14 <= 38 || pctFrom52High <= -8 || (distFrom200DMA !== null && distFrom200DMA <= -2)) {
+          signal = 'STRONG DIP BUY';
+          signalTone = 'buy';
+          timingScore = 92;
+          timingReason = `Pullback of ${pctFrom52High.toFixed(1)}% from 52W high (RSI ${rsi14.toFixed(0)}). Great window to step-up SIP or add top-up units.`;
+        } else if ((rsi14 <= 52 && pctFrom52High <= -3) || (distFrom200DMA !== null && distFrom200DMA >= -2 && distFrom200DMA <= 6)) {
+          signal = 'GOOD SIP ENTRY';
+          signalTone = 'good';
+          timingScore = 78;
+          timingReason = `Fairly valued near 200-DMA (${distFrom200DMA !== null ? (distFrom200DMA >= 0 ? '+' : '') + distFrom200DMA.toFixed(1) + '%' : 'N/A'}). Favorable entry for ongoing SIP.`;
+        } else if (rsi14 >= 68 || (distFrom200DMA !== null && distFrom200DMA >= 16)) {
+          signal = 'SIP ONLY (EXTENDED)';
+          signalTone = 'caution';
+          timingScore = 44;
+          timingReason = `Extended above 200-DMA (${distFrom200DMA !== null ? '+' + distFrom200DMA.toFixed(1) + '%' : 'N/A'}, RSI ${rsi14.toFixed(0)}). Stick strictly to automated SIP; avoid lump-sum.`;
+        }
+
+        return {
+          latestNav: latest.nav,
+          latestDate: latest.date,
+          latestDateStr: formatDate(latest.date),
+          dayChangePct,
+          rsi14,
+          dma50,
+          dma200,
+          distFrom200DMA,
+          high52,
+          low52,
+          pctFrom52High,
+          signal,
+          signalTone,
+          timingReason,
+          timingScore,
+        };
+      }
+
+      function analyzeFund(meta, rawData, curated = {}) {
+        const series = normalizeSeries(rawData);
+        if (series.length < 30) return null;
+
+        const cagr1y = computeTrailingCAGR(series, 1);
+        const cagr3y = computeTrailingCAGR(series, 3);
+        const cagr5y = computeTrailingCAGR(series, 5);
+        const cagr10y = computeTrailingCAGR(series, 10);
+
+        const sip3y = simulateHistoricalSIP(series, 3, 5, 10000);
+        const sip5y = simulateHistoricalSIP(series, 5, 5, 10000);
+        const sip10y = simulateHistoricalSIP(series, 10, 5, 10000);
+
+        const risk = computeRiskMetrics(series, 3);
+        const tech = computeTechnicals(series);
+        const sipDayAnalysis = analyzeBestSIPDay(series);
+        const seasonality = analyzeMonthlySeasonality(series);
+
+        const xirr5 = sip5y?.xirr ?? cagr5y ?? cagr3y ?? 12;
+        const xirr10 = sip10y?.xirr ?? xirr5;
+        const sharpe = risk.sharpe ?? 0.8;
+        const ddAbs = Math.abs(risk.maxDrawdown ?? 15);
+
+        const returnScore = Math.min(45, Math.max(0, (xirr5 * 0.6 + xirr10 * 0.4) * 1.55));
+        const sharpeScore = Math.min(30, Math.max(0, sharpe * 18));
+        const drawdownScore = Math.min(15, Math.max(0, 18 - ddAbs * 0.45));
+        const timingBonus = (tech.timingScore / 100) * 10;
+        const compositeScore = Math.round(Math.min(99, returnScore + sharpeScore + drawdownScore + timingBonus));
+
+        return {
+          code: String(meta.scheme_code),
+          shortName: curated.shortName || meta.scheme_name.replace(/\s*-\s*Direct.*$/i, '').trim(),
+          schemeName: meta.scheme_name,
+          fundHouse: meta.fund_house,
+          category: curated.category || (meta.scheme_category || 'Equity').replace(/^Equity Scheme\s*-\s*/i, ''),
+          rationale: curated.rationale || meta.scheme_category || 'AMFI Direct Growth Scheme',
+          minSip: curated.minSip || 500,
+          exitLoad: curated.exitLoad || 'Check AMC factsheet',
+          series,
+          cagr: { y1: cagr1y, y3: cagr3y, y5: cagr5y, y10: cagr10y },
+          sip: { y3: sip3y, y5: sip5y, y10: sip10y },
+          risk,
+          tech,
+          sipDayAnalysis,
+          seasonality,
+          compositeScore,
+        };
+      }
+
+      function projectSIP({ monthlySip, annualReturnPct, years, stepUpPct = 0 }) {
+        const r = annualReturnPct / 100 / 12;
+        let totalInvested = 0, balance = 0, currentSip = monthlySip;
+        const yearlyBreakdown = [];
+        for (let yr = 1; yr <= years; yr++) {
+          for (let m = 0; m < 12; m++) {
+            balance = (balance + currentSip) * (1 + r);
+            totalInvested += currentSip;
+          }
+          yearlyBreakdown.push({
+            year: yr,
+            invested: Math.round(totalInvested),
+            value: Math.round(balance),
+            gain: Math.round(balance - totalInvested),
+          });
+          currentSip *= 1 + stepUpPct / 100;
+        }
+        return {
+          totalInvested: Math.round(totalInvested),
+          estimatedValue: Math.round(balance),
+          estimatedGain: Math.round(balance - totalInvested),
+          yearlyBreakdown,
+        };
+      }
+
+      function computeBenchmarkStats(fund, benchFund) {
+        if (!fund || !benchFund || fund.code === benchFund.code) {
+          return { alpha5y: 0, beta3y: 1.0 };
+        }
+        const f5 = fund.sip.y5?.xirr ?? fund.cagr.y5;
+        const b5 = benchFund.sip.y5?.xirr ?? benchFund.cagr.y5;
+        const alpha5y = Number.isFinite(f5) && Number.isFinite(b5) ? f5 - b5 : null;
+
+        // 3Y Daily Beta vs Nifty 50
+        const latest = fund.series[fund.series.length - 1];
+        const cutoff = new Date(latest.ts);
+        cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 3);
+        const cutTs = cutoff.getTime();
+
+        const bMap = new Map();
+        for (let i = 1; i < benchFund.series.length; i++) {
+          if (benchFund.series[i].ts >= cutTs) {
+            const r = (benchFund.series[i].nav - benchFund.series[i - 1].nav) / benchFund.series[i - 1].nav;
+            if (Number.isFinite(r)) bMap.set(benchFund.series[i].dateStr, r);
+          }
+        }
+        const pairs = [];
+        for (let i = 1; i < fund.series.length; i++) {
+          if (fund.series[i].ts >= cutTs) {
+            const br = bMap.get(fund.series[i].dateStr);
+            if (br !== undefined) {
+              const fr = (fund.series[i].nav - fund.series[i - 1].nav) / fund.series[i - 1].nav;
+              if (Number.isFinite(fr)) pairs.push([fr, br]);
+            }
+          }
+        }
+        let beta3y = null;
+        if (pairs.length >= 60) {
+          const meanF = pairs.reduce((s, p) => s + p[0], 0) / pairs.length;
+          const meanB = pairs.reduce((s, p) => s + p[1], 0) / pairs.length;
+          let cov = 0, varB = 0;
+          for (const [fr, br] of pairs) {
+            cov += (fr - meanF) * (br - meanB);
+            varB += (br - meanB) * (br - meanB);
+          }
+          if (varB > 0) beta3y = cov / varB;
+        }
+        return { alpha5y, beta3y };
+      }
+
+      return { formatINR, formatDate, analyzeFund, projectSIP, computeBenchmarkStats };
+    })();
+
+    /* =========================================================================
+       2. OPEN AMFI / MFAPI.IN DATA CLIENT — TOP 20 PROVEN INDIA SIPs
+       ========================================================================= */
+    const MFDataAPI = (() => {
+      const BASE_URL = 'https://api.mfapi.in';
+      const CACHE_PREFIX = 'india_sip_mf_v2_';
+      const CACHE_TTL_MS = 1000 * 60 * 30;
+
+      const TOP_20_CURATED = [
+        // Original 10 Verified Leaders
+        { code: '122639', shortName: 'Parag Parikh Flexi Cap', category: 'Flexi Cap', minSip: 1000, exitLoad: '2% (<1y), 1% (1-2y)', rationale: 'Value flagship with global tech diversification & superior downside protection.' },
+        { code: '120828', shortName: 'Quant Small Cap Fund', category: 'Small Cap', minSip: 1000, exitLoad: '1% (<1 yr)', rationale: 'VLRT quantitative momentum engine with top-decile 5Y compounding.' },
+        { code: '118989', shortName: 'HDFC Mid-Cap Opportunities', category: 'Mid Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Category bellwether with deep liquidity and multi-cycle 10Y SIP consistency.' },
+        { code: '118778', shortName: 'Nippon India Small Cap', category: 'Small Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Broadly diversified small-cap wealth creator with stellar 10Y SIP XIRR.' },
+        { code: '127042', shortName: 'Motilal Oswal Midcap', category: 'Mid Cap', minSip: 500, exitLoad: '1% (<1 yr)', rationale: 'High-conviction QGLP growth portfolio delivering strong alpha.' },
+        { code: '118955', shortName: 'HDFC Flexi Cap Fund', category: 'Flexi Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Veteran all-weather flexi-cap fund with value tilt & large-cap anchor.' },
+        { code: '120716', shortName: 'UTI Nifty 50 Index Fund', category: 'Index', minSip: 500, exitLoad: 'Nil', rationale: 'Ultra-low-cost core India benchmark SIP tracking top 50 NSE leaders.' },
+        { code: '119835', shortName: 'SBI Contra Fund', category: 'Contra', minSip: 500, exitLoad: '1% (<1 yr)', rationale: 'Contrarian value powerhouse capturing turnaround sectors across caps.' },
+        { code: '120586', shortName: 'ICICI Pru Bluechip / Large Cap', category: 'Large Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'High-stability Nifty 100 leader offering smoother compounding.' },
+        { code: '118834', shortName: 'Mirae Asset Large & Midcap', category: 'Large & Mid Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Balanced 35/35+ large & mid-cap core SIP blending stability with growth.' },
+        // Expanded 10 Verified Leaders (11-20)
+        { code: '125497', shortName: 'SBI Small Cap Fund', category: 'Small Cap', minSip: 500, exitLoad: '1% (<1 yr)', rationale: 'Quality-focused small-cap stalwart known for protecting downside in bear phases.' },
+        { code: '119775', shortName: 'Kotak Emerging Equity (Midcap)', category: 'Mid Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Consistent GARP mid-cap compounder with low portfolio churn and strong 10Y XIRR.' },
+        { code: '120323', shortName: 'ICICI Pru Value Discovery', category: 'Value', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Iconic multi-decade value fund buying quality franchises at a margin of safety.' },
+        { code: '118650', shortName: 'Nippon India Multi Cap', category: 'Multi Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'True 25/25/25 all-cap allocation delivering top-quartile multi-year SIP returns.' },
+        { code: '120847', shortName: 'Quant ELSS Tax Saver', category: 'ELSS', minSip: 500, exitLoad: '3Y Lock-in (80C)', rationale: 'Aggressive tax-saving ELSS fund with top-tier 5Y & 10Y compounding track record.' },
+        { code: '118269', shortName: 'Canara Robeco Bluechip Equity', category: 'Large Cap', minSip: 1000, exitLoad: '1% (<1 yr)', rationale: 'Clean quality-growth large-cap portfolio with low volatility and steady alpha.' },
+        { code: '125354', shortName: 'Axis Small Cap Fund', category: 'Small Cap', minSip: 100, exitLoad: '1% (<1 yr)', rationale: 'Quality-biased small-cap fund exhibiting lower drawdowns than peers.' },
+        { code: '135781', shortName: 'Mirae Asset ELSS Tax Saver', category: 'ELSS', minSip: 500, exitLoad: '3Y Lock-in (80C)', rationale: 'Balanced Section 80C tax-saver blending Nifty leaders with select growth mid-caps.' },
+        { code: '120492', shortName: 'JM Flexicap Fund', category: 'Flexi Cap', minSip: 100, exitLoad: '1% (<30d)', rationale: 'Agile flexi-cap outperformer with strong momentum and multi-cap flexibility.' },
+        { code: '143341', shortName: 'UTI Nifty Next 50 Index', category: 'Index', minSip: 500, exitLoad: 'Nil', rationale: 'Low-cost passive bet on India’s emerging future Nifty 50 leaders (ranks 51–100).' },
+      ];
+
+      const FREE_PORTALS = [
+        { name: 'AMFI India (Official)', url: 'https://www.amfiindia.com/net-asset-value', tag: 'Official NAVs', tagTerm: 'amfi', desc: 'Association of Mutual Funds in India — official daily NAVs, scheme codes & regulatory disclosures.' },
+        { name: 'MFapi.in (Open API)', url: 'https://www.mfapi.in/', tag: 'Live Feed Source', tagTerm: 'nav', desc: 'Free, open-source JSON API powering this dashboard with full historical AMFI NAV datasets.' },
+        { name: 'Value Research Online', url: 'https://www.valueresearchonline.com/funds/', tag: 'Ratings & Overlap', tagTerm: 'overlap', desc: 'Independent Indian mutual fund star ratings, rolling returns, expense ratios & portfolio overlap.' },
+        { name: 'Morningstar India', url: 'https://www.morningstar.in/mutualfunds/default.aspx', tag: 'Alpha & Beta', tagTerm: 'alpha', desc: 'Institutional Morningstar Style Box, capture ratios, alpha/beta & fund manager tenure.' },
+        { name: 'Kuvera (Direct SIP)', url: 'https://kuvera.in/explore/all', tag: 'Zero-Comm Direct', tagTerm: 'direct_plan', desc: 'Free direct mutual fund investing portal with tax-harvesting & goal tracking.' },
+        { name: 'Zerodha Coin', url: 'https://coin.zerodha.com/dashboard/mf/discover', tag: 'Demat Direct SIP', tagTerm: 'demat', desc: 'Zero-commission direct mutual funds in demat form with automated step-up SIPs.' },
+      ];
+
+      function buildPortalLinks(schemeName, schemeCode) {
+        const q = encodeURIComponent(schemeName.replace(/\s*-\s*Direct.*$/i, '').trim());
+        return {
+          mfapi: `${BASE_URL}/mf/${schemeCode}`,
+          valueResearch: `https://www.valueresearchonline.com/search/?q=${q}`,
+          morningstar: `https://www.morningstar.in/search.aspx?search=${q}`,
+          groww: `https://groww.in/mutual-funds/search?q=${q}`,
+          kuvera: `https://kuvera.in/explore/all?search=${q}`,
+        };
+      }
+
+      function readCache(code) {
+        try {
+          const raw = localStorage.getItem(CACHE_PREFIX + code);
+          return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+      }
+
+      function writeCache(code, payload) {
+        try {
+          localStorage.setItem(
+            CACHE_PREFIX + code,
+            JSON.stringify({
+              ts: Date.now(),
+              meta: payload.meta,
+              data: Array.isArray(payload.data) ? payload.data.slice(0, 2850) : [],
+            })
+          );
+        } catch {}
+      }
+
+      async function fetchScheme(code, forceRefresh = false) {
+        const cached = readCache(code);
+        if (!forceRefresh && cached && Date.now() - cached.ts < CACHE_TTL_MS && cached.data?.length) {
+          return { meta: cached.meta, data: cached.data, fromCache: true };
+        }
+        try {
+          const resp = await fetch(`${BASE_URL}/mf/${code}`, { cache: 'no-store' });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const json = await resp.json();
+          if (!json || !json.data || !json.data.length) throw new Error('Empty NAV data');
+          writeCache(code, json);
+          return { meta: json.meta, data: json.data, fromCache: false };
+        } catch (err) {
+          if (cached && cached.data?.length) return { meta: cached.meta, data: cached.data, fromCache: true, stale: true };
+          throw err;
+        }
+      }
+
+      async function searchSchemes(query) {
+        const q = query.trim();
+        if (q.length < 2) return [];
+        const resp = await fetch(`${BASE_URL}/mf/search?q=${encodeURIComponent(q)}`);
+        if (!resp.ok) throw new Error('Search failed');
+        const results = await resp.json();
+        if (!Array.isArray(results)) return [];
+        const directGrowth = results.filter(
+          (r) => /direct/i.test(r.schemeName) && /growth/i.test(r.schemeName) && !/idcw|dividend/i.test(r.schemeName)
+        );
+        const others = results.filter((r) => !directGrowth.includes(r));
+        return [...directGrowth, ...others].slice(0, 18);
+      }
+
+      return { TOP_20_CURATED, FREE_PORTALS, buildPortalLinks, fetchScheme, searchSchemes };
+    })();
+
+    /* =========================================================================
+       2B. PROVEN INDIAN FINTWIT & PERSONAL FINANCE EDUCATOR INSIGHTS
+       ========================================================================= */
+    const FINTWIT_INSIGHTS = [
+      {
+        name: 'Radhika Gupta',
+        initials: 'RG',
+        handle: '@iRadhikaGupta',
+        url: 'https://x.com/iRadhikaGupta',
+        role: 'MD & CEO, Edelweiss Mutual Fund',
+        cat: 'SIP Discipline',
+        quote: 'Build a "Dal-Chawal" core portfolio first (Flexi Cap / Large & Mid / Index funds) before adding spicy Small Cap funds. Boring, uninterrupted 10-year SIPs beat clever market timing almost every time.',
+        takeaway: 'Use the Category Filters above to anchor 60–70% of your SIP in Flexi Cap / Index / Large & Mid Cap funds, and cap Small Caps at 20–30%.',
+      },
+      {
+        name: 'M. Pattabiraman (Freefincal)',
+        initials: 'MP',
+        handle: '@pattufreefincal',
+        url: 'https://x.com/pattufreefincal',
+        role: 'IIT Madras Prof & Founder, Freefincal',
+        cat: 'Benchmarking & Data',
+        quote: 'Never judge a mutual fund by 1-year point-to-point returns. Always benchmark active funds against the Nifty 50 TRI and check downside protection and risk-adjusted consistency.',
+        takeaway: 'Check the "vs Nifty 50" Alpha column and the Nifty 50 Overlay chart above—only pay active fees if a fund consistently beats Nifty 50 over 5Y–10Y.',
+      },
+      {
+        name: 'Deepak Shenoy',
+        initials: 'DS',
+        handle: '@deepakshenoy',
+        url: 'https://x.com/deepakshenoy',
+        role: 'Founder & CEO, Capitalmind',
+        cat: 'Benchmarking & Data',
+        quote: 'In Indian markets, 10–15% drawdowns happen almost every year and 25%+ crashes happen once every few years. SIP investors who keep buying when indices fall below their 200-DMA make the biggest long-term gains.',
+        takeaway: 'Watch the Live Dip Radar & 200-DMA chart—when quality funds flash "STRONG DIP BUY", avoid stopping your SIP; that is when rupee-cost averaging works hardest.',
+      },
+      {
+        name: 'Rajeev Thakkar',
+        initials: 'RT',
+        handle: '@rajeevthakkar',
+        url: 'https://x.com/rajeevthakkar',
+        role: 'CIO & Director, PPFAS Mutual Fund',
+        cat: 'Risk & Value',
+        quote: 'To finish first, you must first finish. Avoiding permanent capital loss and overpaying during euphoric rallies matters more than chasing last year’s hottest small-cap theme.',
+        takeaway: 'Sort the Top 20 table by "Sharpe" and "Max DD" to spot funds that protect your downside—and heed "SIP ONLY (EXTENDED)" badges instead of chasing peaks with lump sums.',
+      },
+      {
+        name: 'Nithin Kamath',
+        initials: 'NK',
+        handle: '@Nithin0dha',
+        url: 'https://x.com/Nithin0dha',
+        role: 'Founder & CEO, Zerodha',
+        cat: 'Beginner Rules',
+        quote: 'Over 90% of retail F&O traders lose money, while disciplined Direct-Plan mutual fund SIP investors quietly compound wealth. Saving ~1% every year via Direct Plans adds up to lakhs over decades.',
+        takeaway: 'All 20 funds on this dashboard are verified Direct Plan – Growth schemes (zero distributor commission). Stick to long-term SIPs over short-term trading.',
+      },
+      {
+        name: 'Monika Halan',
+        initials: 'MH',
+        handle: '@monikahalan',
+        url: 'https://x.com/monikahalan',
+        role: 'Author, "Let’s Talk Money" & "Let’s Talk Mutual Funds"',
+        cat: 'Beginner Rules',
+        quote: 'Before starting your first equity SIP, lock in 6 months of emergency cash, term life insurance, and family health cover. Keep your portfolio simple: 3 to 5 distinct funds are plenty—more just creates overlap.',
+        takeaway: 'Don’t buy all 20 funds! Pick 1 Index/Large Cap + 1 Flexi Cap + 1 Mid/Small Cap (max 3–4 funds) and step-up your SIP 10% every year as your salary grows.',
+      },
+      {
+        name: 'Neil Borate',
+        initials: 'NB',
+        handle: '@Actusdei',
+        url: 'https://x.com/Actusdei',
+        role: 'Deputy Editor, Mint Personal Finance',
+        cat: 'Benchmarking & Data',
+        quote: 'Compare Expense Ratios (TER), Exit Loads, and true SIP XIRR—not misleading absolute returns. Remember that ELSS funds only help with tax savings under the Old Tax Regime (Section 80C).',
+        takeaway: 'Every return in our leaderboard is true annualized SIP XIRR, and clicking any fund shows its exact exit load plus direct Value Research & Morningstar links.',
+      },
+      {
+        name: 'Value Research',
+        initials: 'VR',
+        handle: '@ValueResearch',
+        url: 'https://x.com/ValueResearch',
+        role: 'Independent India Mutual Fund Research',
+        cat: 'SIP Discipline',
+        quote: 'The exact SIP date (5th vs 25th) makes only a small difference over 10+ years compared to simply staying invested through bear markets and never pausing your SIP during red headlines.',
+        takeaway: 'Our Day 1–28 Backtest shows your optimal date for a tiny edge, but the biggest multiplier in the SIP Simulator is increasing your Horizon (10–20 yrs) and Annual Step-Up %.',
+      },
+      {
+        name: 'D. Muthukrishnan',
+        initials: 'DM',
+        handle: '@dmuthuk',
+        url: 'https://x.com/dmuthuk',
+        role: 'Certified Financial Planner & Veteran SIP Educator',
+        cat: 'SIP Discipline',
+        quote: 'Wealth in mutual funds is made by boring consistency over 15–20 years, not by jumping to whichever small-cap topped last year’s chart. Focus on increasing your monthly SIP amount every year.',
+        takeaway: 'Use the Step-Up SIP slider (10–15% annual step-up) in our simulator to see how increasing your SIP beats constantly switching funds.',
+      },
+      {
+        name: 'Finshots',
+        initials: 'FS',
+        handle: '@finshots',
+        url: 'https://x.com/finshots',
+        role: 'India’s 3-Minute Financial Explainer Newsletter',
+        cat: 'Beginner Rules',
+        quote: 'Pausing SIPs during market falls defeats the entire point of Rupee Cost Averaging—falling markets are literally when your fixed monthly SIP buys the maximum number of units.',
+        takeaway: 'When our Live Dip Radar shows red 1D% or negative 52W High % with "STRONG DIP BUY", keep your SIP running so you accumulate extra units cheaply.',
+      },
+    ];
+
+    /* =========================================================================
+       3. DASHBOARD UI CONTROLLER, REAL-TIME FEED, CHARTS & GLOSSARY MODAL
+       ========================================================================= */
+    const state = {
+      funds: [],
+      niftyFund: null,
+      customCodes: [],
+      activeCategory: 'ALL',
+      sortKey: 'score',
+      sortDir: 'desc',
+      autoTimer: null,
+      calcChart: null,
+      benchChart: null,
+      benchYears: 5,
+      mixProfile: 'balanced',
+      mixBudget: 10000,
+      mixStepUp: 0,
+      mixChart: null,
+      modalNavChart: null,
+      modalDayChart: null,
+      modalOverlayNifty: false,
+      activeModalFund: null,
+      modalRangeYears: 5,
+      glossaryCat: 'ALL',
+      fintwitCat: 'ALL',
+    };
+
+    const MIXED_PORTFOLIOS = {
+      balanced: {
+        label: 'Balanced Core + Growth',
+        bestTenure: '10 – 15 Years',
+        sweetYear: 12,
+        note: 'Recommended: 60% stable core (Flexi + Nifty 50) + 40% growth (Mid + Small Cap)',
+        slices: [
+          { code: '122639', pct: 35, color: '#10b981', role: 'Core Flexi Cap + Global Cushion' },
+          { code: '120716', pct: 25, color: '#38bdf8', role: 'Low-Cost Nifty 50 Anchor' },
+          { code: '118989', pct: 25, color: '#a78bfa', role: 'Consistent Mid-Cap Compounder' },
+          { code: '118778', pct: 15, color: '#f59e0b', role: 'Diversified Small-Cap Kicker' },
+        ],
+      },
+      aggressive: {
+        label: 'High-Growth Aggressive',
+        bestTenure: '12 – 15+ Years',
+        sweetYear: 15,
+        note: 'Maximum Return Focus: Higher short-term swings — hold strictly 12+ years',
+        slices: [
+          { code: '122639', pct: 30, color: '#10b981', role: 'Quality Flexi-Cap Ballast' },
+          { code: '127042', pct: 30, color: '#a78bfa', role: 'High-Alpha Mid-Cap Engine' },
+          { code: '120828', pct: 25, color: '#f43f5e', role: 'Momentum Small-Cap Booster' },
+          { code: '119835', pct: 15, color: '#f59e0b', role: 'Contrarian Value Hedge' },
+        ],
+      },
+      conservative: {
+        label: 'Conservative Beginner',
+        bestTenure: '7 – 10 Years',
+        sweetYear: 10,
+        note: 'Smoother Ride: Heavy Large-Cap & Value tilt for lower drawdowns',
+        slices: [
+          { code: '120716', pct: 40, color: '#38bdf8', role: 'Pure Nifty 50 Core Stability' },
+          { code: '122639', pct: 30, color: '#10b981', role: 'Downside-Protected Flexi Cap' },
+          { code: '118834', pct: 20, color: '#a78bfa', role: 'Balanced Large & Mid Blend' },
+          { code: '120323', pct: 10, color: '#f59e0b', role: 'Defensive Value Cushion' },
+        ],
+      },
+    };
+
+    const fmtPct = (v, sign = false) => {
+      if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+      const prefix = sign && v > 0 ? '+' : '';
+      return `${prefix}${v.toFixed(2)}%`;
+    };
+
+    const fmtNum = (v, digits = 2) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(digits));
+
+    const ordinal = (d) => {
+      if (!d) return '—';
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = d % 100;
+      return d + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
+
+    function renderPortals() {
+      const grid = document.getElementById('portalsGrid');
+      grid.innerHTML = MFDataAPI.FREE_PORTALS.map((p) => `
+        <a class="portal-card" href="${p.url}" target="_blank" rel="noopener noreferrer">
+          <div class="portal-head">
+            <strong>${p.name} ↗</strong>
+            <span class="portal-tag" data-term="${p.tagTerm}">${p.tag}</span>
+          </div>
+          <p>${p.desc}</p>
+        </a>
+      `).join('');
+    }
+
+    function renderTicker() {
+      const track = document.getElementById('tickerTrack');
+      if (!state.funds.length) return;
+      const itemsHtml = state.funds.map((f) => {
+        const chg = f.tech.dayChangePct;
+        const cls = chg >= 0 ? 'pos' : 'neg';
+        const sigTerm = SIGNAL_TO_TERM[f.tech.signalTone] || 'timing_signal';
+        return `
+          <span class="ticker-item" onclick="openFundModal('${f.code}')">
+            <span class="t-name">${f.shortName}</span>
+            <span class="t-nav mono">₹${f.tech.latestNav.toFixed(2)}</span>
+            <span class="${cls} mono">${fmtPct(chg, true)}</span>
+            <span class="signal-badge signal-${f.tech.signalTone}" data-term="${sigTerm}" style="padding:1px 6px; font-size:0.64rem;">${f.tech.signal}</span>
+          </span>
+        `;
+      }).join('');
+      track.innerHTML = itemsHtml + itemsHtml;
+      track.style.animationDuration = `${Math.max(48, state.funds.length * 4)}s`;
+    }
+
+    function renderKPIs() {
+      if (!state.funds.length) return;
+
+      const byTiming = [...state.funds].sort((a, b) => {
+        if (b.tech.timingScore !== a.tech.timingScore) return b.tech.timingScore - a.tech.timingScore;
+        return a.tech.rsi14 - b.tech.rsi14;
+      });
+      const bestBuy = byTiming[0];
+      document.getElementById('kpiBestBuy').textContent = bestBuy.shortName;
+      document.getElementById('kpiBestBuySub').innerHTML =
+        `<span class="jargon" data-term="${SIGNAL_TO_TERM[bestBuy.tech.signalTone]}">${bestBuy.tech.signal}</span> • <span class="jargon" data-term="rsi">RSI ${bestBuy.tech.rsi14.toFixed(0)}</span> • <span class="jargon" data-term="high_low_52w">${bestBuy.tech.pctFrom52High.toFixed(1)}% off 52W High</span>`;
+
+      const with5y = state.funds.filter((f) => Number.isFinite(f.sip.y5?.xirr));
+      if (with5y.length) {
+        const leader = [...with5y].sort((a, b) => b.sip.y5.xirr - a.sip.y5.xirr)[0];
+        document.getElementById('kpiTopXirr').textContent = fmtPct(leader.sip.y5.xirr);
+        document.getElementById('kpiTopXirrSub').textContent =
+          `${leader.shortName} (₹10k/mo → ${FinanceEngine.formatINR(leader.sip.y5.currentValue, true)})`;
+
+        const avg = with5y.reduce((acc, f) => acc + f.sip.y5.xirr, 0) / with5y.length;
+        document.getElementById('kpiAvgXirr').textContent = fmtPct(avg);
+        document.getElementById('kpiAvgXirrSub').textContent =
+          `Across ${with5y.length} tracked Direct-Growth equity funds`;
+      }
+
+      const bestDays = state.funds.map((f) => f.sipDayAnalysis.bestDay).filter(Boolean).sort((a, b) => a - b);
+      if (bestDays.length) {
+        const medianDay = bestDays[Math.floor(bestDays.length / 2)];
+        const minW = Math.max(1, medianDay - 2);
+        const maxW = Math.min(28, medianDay + 2);
+        document.getElementById('kpiBestDate').textContent = `${ordinal(minW)} – ${ordinal(maxW)} of Month`;
+        document.getElementById('kpiBestDateSub').innerHTML =
+          `Median best day: ${ordinal(medianDay)} (captures <span class="jargon" data-term="fo_expiry">F&amp;O expiry</span> dips)`;
+      }
+    }
+
+    function getSortValue(f, key) {
+      switch (key) {
+        case 'name': return f.shortName.toLowerCase();
+        case 'nav': return f.tech.latestNav;
+        case 'dayChange': return f.tech.dayChangePct;
+        case 'cagr1y': return f.cagr.y1 ?? -999;
+        case 'sip3y': return f.sip.y3?.xirr ?? -999;
+        case 'sip5y': return f.sip.y5?.xirr ?? -999;
+        case 'sip10y': return f.sip.y10?.xirr ?? -999;
+        case 'alpha5y': return f.bench?.alpha5y ?? -999;
+        case 'sharpe': return f.risk.sharpe ?? -999;
+        case 'maxDD': return f.risk.maxDrawdown ?? -999;
+        case 'rsi': return f.tech.rsi14 ?? 999;
+        case 'bestDay': return f.sipDayAnalysis.bestDay ?? 99;
+        case 'timingScore': return f.tech.timingScore;
+        case 'score':
+        case 'rank':
+        default: return f.compositeScore;
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('fundTableBody');
+      let list = state.funds.filter((f) => state.activeCategory === 'ALL' || f.category === state.activeCategory);
+      list.sort((a, b) => {
+        const va = getSortValue(a, state.sortKey);
+        const vb = getSortValue(b, state.sortKey);
+        if (typeof va === 'string') return state.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        return state.sortDir === 'asc' ? va - vb : vb - va;
+      });
+
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:28px; color:var(--text-muted);">No funds match this category filter.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map((f, idx) => {
+        const rank = idx + 1;
+        const rankCls = rank <= 3 ? `rank-${rank}` : '';
+        const chgCls = f.tech.dayChangePct >= 0 ? 'pos' : 'neg';
+        const c1Cls = (f.cagr.y1 ?? 0) >= 0 ? 'pos' : 'neg';
+        const rsiCls = f.tech.rsi14 <= 40 ? 'pos' : f.tech.rsi14 >= 68 ? 'warn' : '';
+        const catTerm = CATEGORY_TO_TERM[f.category] || 'mutual_fund';
+        const sigTerm = SIGNAL_TO_TERM[f.tech.signalTone] || 'timing_signal';
+        const alpha = f.bench?.alpha5y;
+        const alphaCls = alpha === null || alpha === undefined ? '' : alpha >= 0 ? 'pos' : 'neg';
+        const alphaTxt = f.code === '120716' ? 'Benchmark' : fmtPct(alpha, true);
+
+        return `
+          <tr onclick="openFundModal('${f.code}')">
+            <td><span class="rank-badge ${rankCls}">${rank}</span></td>
+            <td>
+              <span class="fund-cell-title">${f.shortName}</span>
+              <span class="fund-cell-meta">
+                <span class="cat-tag" data-term="${catTerm}">${f.category}</span>
+                <span data-term="amfi">Code: ${f.code}</span>
+                <span>• ${f.tech.latestDateStr}</span>
+              </span>
+            </td>
+            <td class="num mono">₹${f.tech.latestNav.toFixed(2)}</td>
+            <td class="num mono ${chgCls}">${fmtPct(f.tech.dayChangePct, true)}</td>
+            <td class="num mono ${c1Cls}">${fmtPct(f.cagr.y1)}</td>
+            <td class="num mono pos">${fmtPct(f.sip.y3?.xirr)}</td>
+            <td class="num mono pos" style="font-weight:700;">${fmtPct(f.sip.y5?.xirr)}</td>
+            <td class="num mono pos">${fmtPct(f.sip.y10?.xirr)}</td>
+            <td class="num mono ${alphaCls}" data-term="alpha">${alphaTxt}</td>
+            <td class="num mono">${fmtNum(f.risk.sharpe)}</td>
+            <td class="num mono neg">${fmtPct(f.risk.maxDrawdown)}</td>
+            <td class="num mono ${rsiCls}">${fmtNum(f.tech.rsi14, 1)}</td>
+            <td class="num mono">${ordinal(f.sipDayAnalysis.bestDay)}</td>
+            <td><span class="signal-badge signal-${f.tech.signalTone}" data-term="${sigTerm}">${f.tech.signal}</span></td>
+            <td class="num"><span class="score-pill mono" data-term="composite_score">${f.compositeScore}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderTimingCards() {
+      const container = document.getElementById('timingCards');
+      const ranked = [...state.funds]
+        .sort((a, b) => b.tech.timingScore - a.tech.timingScore || a.tech.rsi14 - b.tech.rsi14)
+        .slice(0, 6);
+
+      container.innerHTML = ranked.map((f) => {
+        const dist = f.tech.distFrom200DMA;
+        const distStr = dist !== null ? `${dist >= 0 ? '+' : ''}${dist.toFixed(1)}% vs 200-DMA` : '200-DMA N/A';
+        const sigTerm = SIGNAL_TO_TERM[f.tech.signalTone] || 'timing_signal';
+        const catTerm = CATEGORY_TO_TERM[f.category] || 'mutual_fund';
+        return `
+          <div class="timing-card" onclick="openFundModal('${f.code}')">
+            <div class="timing-card-top">
+              <div>
+                <h4>${f.shortName}</h4>
+                <span style="font-size:0.72rem; color:var(--text-muted);">
+                  <span data-term="${catTerm}" style="border-bottom:1px dotted var(--text-muted);">${f.category}</span> •
+                  <span data-term="best_sip_day">Best Day: <strong style="color:var(--text-primary);">${ordinal(f.sipDayAnalysis.bestDay)}</strong></span>
+                </span>
+              </div>
+              <span class="signal-badge signal-${f.tech.signalTone}" data-term="${sigTerm}">${f.tech.signal}</span>
+            </div>
+            <div class="timing-metrics mono">
+              <span data-term="rsi">RSI: <strong>${f.tech.rsi14.toFixed(0)}</strong></span>
+              <span data-term="high_low_52w">52W: <strong class="${f.tech.pctFrom52High <= -5 ? 'pos' : ''}">${f.tech.pctFrom52High.toFixed(1)}%</strong></span>
+              <span data-term="dma200">${distStr}</span>
+            </div>
+            <div class="timing-reason">
+              ${f.tech.timingReason} Historically best dip-accumulation month: <strong style="color:var(--text-primary);" data-term="seasonality">${f.seasonality.bestAccumMonth.month}</strong>.
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ---------- SIP Wealth Simulator ---------- */
+    function populateCalcDropdown() {
+      const sel = document.getElementById('calcFundSelect');
+      const prev = sel.value;
+      sel.innerHTML = state.funds.map((f) => {
+        const rate = f.sip.y5?.xirr ?? f.cagr.y5 ?? f.cagr.y3 ?? 15;
+        return `<option value="${f.code}" data-rate="${rate.toFixed(1)}">${f.shortName} (5Y SIP XIRR: ${rate.toFixed(1)}%)</option>`;
+      }).join('');
+      if (prev && state.funds.some((f) => f.code === prev)) sel.value = prev;
+      else if (state.funds.length) {
+        const rate = parseFloat(sel.options[0].dataset.rate) || 18;
+        document.getElementById('calcRate').value = Math.min(32, Math.max(6, Math.round(rate * 2) / 2));
+      }
+      updateSIPCalculator();
+    }
+
+    function updateSIPCalculator() {
+      const monthlySip = Number(document.getElementById('calcMonthly').value);
+      const years = Number(document.getElementById('calcYears').value);
+      const annualReturnPct = Number(document.getElementById('calcRate').value);
+      const stepUpPct = Number(document.getElementById('calcStepUp').value);
+
+      document.getElementById('calcMonthlyVal').textContent = FinanceEngine.formatINR(monthlySip);
+      document.getElementById('calcYearsVal').textContent = `${years} yrs`;
+      document.getElementById('calcRateVal').textContent = `${annualReturnPct.toFixed(1)}%`;
+      document.getElementById('calcStepUpVal').textContent = `${stepUpPct}%`;
+
+      const proj = FinanceEngine.projectSIP({ monthlySip, annualReturnPct, years, stepUpPct });
+      const niftyRate = state.niftyFund?.sip?.y5?.xirr ?? 14.5;
+      const niftyProj = FinanceEngine.projectSIP({ monthlySip, annualReturnPct: niftyRate, years, stepUpPct });
+
+      document.getElementById('resInvested').textContent = FinanceEngine.formatINR(proj.totalInvested, true);
+      document.getElementById('resGain').textContent = FinanceEngine.formatINR(proj.estimatedGain, true);
+      document.getElementById('resTotal').textContent = FinanceEngine.formatINR(proj.estimatedValue, true);
+
+      const ctx = document.getElementById('sipCalcChart').getContext('2d');
+      const labels = proj.yearlyBreakdown.map((d) => `Yr ${d.year}`);
+      const investedData = proj.yearlyBreakdown.map((d) => d.invested);
+      const valueData = proj.yearlyBreakdown.map((d) => d.value);
+      const niftyData = niftyProj.yearlyBreakdown.map((d) => d.value);
+
+      if (state.calcChart) state.calcChart.destroy();
+      state.calcChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Selected Fund Corpus (₹)', data: valueData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.14)', fill: true, tension: 0.3, borderWidth: 2.2, pointRadius: 2 },
+            { label: `Nifty 50 Benchmark (${niftyRate.toFixed(1)}%)`, data: niftyData, borderColor: '#facc15', borderDash: [6, 4], fill: false, tension: 0.3, borderWidth: 1.9, pointRadius: 0 },
+            { label: 'Total Invested (₹)', data: investedData, borderColor: '#38bdf8', borderDash: [3, 3], fill: false, tension: 0.2, borderWidth: 1.5, pointRadius: 0 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${FinanceEngine.formatINR(ctx.raw, true)}` } },
+          },
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.08)' } },
+            y: { ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => FinanceEngine.formatINR(v, true) }, grid: { color: 'rgba(148,163,184,0.08)' } },
+          },
+        },
+      });
+    }
+
+    /* ---------- Nifty 50 Benchmark Overlay Comparison Panel ---------- */
+    function buildIndexedSeries(fund, cutoffTs, baseAmount = 10000) {
+      if (!fund || !fund.series.length) return [];
+      const slice = fund.series.filter((p) => p.ts >= cutoffTs);
+      if (slice.length < 2) return [];
+      const baseNav = slice[0].nav;
+      return slice.map((p) => ({
+        dateStr: p.dateStr,
+        ts: p.ts,
+        val: (p.nav / baseNav) * baseAmount,
+      }));
+    }
+
+    function populateBenchDropdowns() {
+      const s1 = document.getElementById('benchFund1');
+      const s2 = document.getElementById('benchFund2');
+      const nonNifty = state.funds.filter((f) => f.code !== '120716');
+      if (!nonNifty.length) return;
+
+      const prev1 = s1.value, prev2 = s2.value;
+      const opts = nonNifty.map((f) => `<option value="${f.code}">${f.shortName} (${f.category})</option>`).join('');
+      s1.innerHTML = opts;
+      s2.innerHTML = `<option value="">None (1 Fund vs Nifty 50)</option>` + opts;
+
+      s1.value = prev1 && nonNifty.some((f) => f.code === prev1) ? prev1 : (nonNifty[0]?.code || '');
+      s2.value = prev2 && nonNifty.some((f) => f.code === prev2) ? prev2 : (nonNifty[1]?.code || '');
+      renderBenchmarkOverlay();
+    }
+
+    function renderBenchmarkOverlay() {
+      const nifty = state.niftyFund;
+      if (!nifty) return;
+      const f1 = state.funds.find((f) => f.code === document.getElementById('benchFund1').value);
+      const f2 = state.funds.find((f) => f.code === document.getElementById('benchFund2').value);
+      if (!f1) return;
+
+      const latestTs = nifty.series[nifty.series.length - 1].ts;
+      const cutoff = new Date(latestTs);
+      cutoff.setUTCFullYear(cutoff.getUTCFullYear() - state.benchYears);
+      const cutTs = cutoff.getTime();
+
+      const nIdx = buildIndexedSeries(nifty, cutTs, 10000);
+      const f1Idx = buildIndexedSeries(f1, cutTs, 10000);
+      const f2Idx = f2 ? buildIndexedSeries(f2, cutTs, 10000) : [];
+
+      const f1Map = new Map(f1Idx.map((p) => [p.dateStr, p.val]));
+      const f2Map = new Map(f2Idx.map((p) => [p.dateStr, p.val]));
+
+      // Align on Nifty trading dates and downsample to ~150 points
+      const aligned = nIdx.filter((p) => f1Map.has(p.dateStr));
+      const step = Math.max(1, Math.floor(aligned.length / 150));
+      const sampled = aligned.filter((_, i) => i % step === 0 || i === aligned.length - 1);
+
+      const nEnd = sampled.length ? sampled[sampled.length - 1].val : 10000;
+      const f1End = sampled.length ? f1Map.get(sampled[sampled.length - 1].dateStr) : 10000;
+      const f2End = f2 && sampled.length ? f2Map.get(sampled[sampled.length - 1].dateStr) : null;
+
+      document.getElementById('bStatNifty').textContent = FinanceEngine.formatINR(nEnd);
+      document.getElementById('bStatF1Label').textContent = `${f1.shortName} (₹10k Grew To)`;
+      const f1Diff = f1End - nEnd;
+      document.getElementById('bStatF1').innerHTML = `${FinanceEngine.formatINR(f1End)} <small class="${f1Diff >= 0 ? 'pos' : 'neg'}">(${f1Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f1Diff, true)} vs Nifty)</small>`;
+
+      if (f2 && Number.isFinite(f2End)) {
+        const f2Diff = f2End - nEnd;
+        document.getElementById('bStatF2Label').textContent = `${f2.shortName} (₹10k Grew To)`;
+        document.getElementById('bStatF2').innerHTML = `${FinanceEngine.formatINR(f2End)} <small class="${f2Diff >= 0 ? 'pos' : 'neg'}">(${f2Diff >= 0 ? '+' : ''}${FinanceEngine.formatINR(f2Diff, true)})</small>`;
+      } else {
+        document.getElementById('bStatF2Label').textContent = 'Fund 2 Comparison';
+        document.getElementById('bStatF2').textContent = 'Select 2nd fund';
+      }
+
+      const b1 = fmtNum(f1.bench?.beta3y);
+      const b2 = f2 ? ` / ${fmtNum(f2.bench?.beta3y)}` : '';
+      document.getElementById('bStatBeta').textContent = `${b1}${b2}`;
+
+      const datasets = [
+        {
+          label: `${f1.shortName} (₹10k Base)`,
+          data: sampled.map((p) => Number((f1Map.get(p.dateStr) || 10000).toFixed(0))),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          fill: true,
+          borderWidth: 2.3,
+          pointRadius: 0,
+          tension: 0.18,
+        },
+        {
+          label: 'Nifty 50 Benchmark (₹10k Base)',
+          data: sampled.map((p) => Number(p.val.toFixed(0))),
+          borderColor: '#facc15',
+          borderDash: [6, 4],
+          fill: false,
+          borderWidth: 2.1,
+          pointRadius: 0,
+          tension: 0.18,
+        },
+      ];
+
+      if (f2 && f2Idx.length) {
+        datasets.splice(1, 0, {
+          label: `${f2.shortName} (₹10k Base)`,
+          data: sampled.map((p) => {
+            const v = f2Map.get(p.dateStr);
+            return v !== undefined ? Number(v.toFixed(0)) : null;
+          }),
+          borderColor: '#38bdf8',
+          fill: false,
+          borderWidth: 2.1,
+          pointRadius: 0,
+          tension: 0.18,
+          spanGaps: true,
+        });
+      }
+
+      const ctx = document.getElementById('benchOverlayChart').getContext('2d');
+      if (state.benchChart) state.benchChart.destroy();
+      state.benchChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: sampled.map((p) => p.dateStr), datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#cbd5e1', font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: (c) => `${c.dataset.label}: ${FinanceEngine.formatINR(c.raw)}`,
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } }, grid: { display: false } },
+            y: {
+              ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => FinanceEngine.formatINR(v, true) },
+              grid: { color: 'rgba(148,163,184,0.08)' },
+            },
+          },
+        },
+      });
+    }
+
+    /* ---------- ₹10,000/Month Mixed SIP Blueprint & Optimal Tenure ---------- */
+    function renderMixedPortfolio() {
+      if (!state.funds.length) return;
+      const cfg = MIXED_PORTFOLIOS[state.mixProfile] || MIXED_PORTFOLIOS.balanced;
+      const budget = state.mixBudget;
+      const stepUp = state.mixStepUp;
+
+      document.getElementById('mixRecommendationNote').textContent = cfg.note;
+
+      let weightedXirr = 0, weightedSharpe = 0, weightedDD = 0, totalWeight = 0;
+      const resolved = cfg.slices.map((s) => {
+        const f = state.funds.find((x) => x.code === s.code);
+        const amount = Math.round((budget * s.pct) / 100);
+        const xirr5 = f?.sip?.y5?.xirr ?? f?.cagr?.y5 ?? 15;
+        const sharpe = f?.risk?.sharpe ?? 1.0;
+        const dd = f?.risk?.maxDrawdown ?? -16;
+        weightedXirr += xirr5 * (s.pct / 100);
+        weightedSharpe += sharpe * (s.pct / 100);
+        weightedDD += dd * (s.pct / 100);
+        totalWeight += s.pct;
+        return { ...s, fund: f, amount, xirr5 };
+      });
+
+      // Cap projected forward rate prudently at 24% max for realistic planning while showing live 5Y XIRR
+      const liveBlendedXirr = totalWeight > 0 ? weightedXirr : 15;
+      const planningRate = Math.min(24, Math.max(10, liveBlendedXirr));
+
+      document.getElementById('mixKpiXirr').textContent = fmtPct(liveBlendedXirr);
+      document.getElementById('mixKpiRisk').textContent = `${weightedSharpe.toFixed(2)} / ${weightedDD.toFixed(1)}%`;
+      document.getElementById('mixKpiTenure').textContent = cfg.bestTenure;
+      document.getElementById('mixTenureRateBadge').textContent =
+        `Using ${planningRate.toFixed(1)}% XIRR${stepUp ? ` (+${stepUp}%/yr Step-Up)` : ' (Flat SIP)'}`;
+
+      const proj12 = FinanceEngine.projectSIP({
+        monthlySip: budget,
+        annualReturnPct: planningRate,
+        years: 12,
+        stepUpPct: stepUp,
+      });
+      document.getElementById('mixKpiCorpus12').textContent = FinanceEngine.formatINR(proj12.estimatedValue, true);
+
+      // Allocation Bar
+      document.getElementById('mixAllocBar').innerHTML = resolved
+        .map((r) => `<div style="width:${r.pct}%; background:${r.color};" title="${r.fund?.shortName || r.code}: ${r.pct}% (${FinanceEngine.formatINR(r.amount)}/mo)"></div>`)
+        .join('');
+
+      // 4 Fund Breakdown Cards
+      document.getElementById('mixCards').innerHTML = resolved.map((r) => {
+        const f = r.fund;
+        const name = f ? f.shortName : `Scheme ${r.code}`;
+        const sigTone = f ? f.tech.signalTone : 'neutral';
+        const sigText = f ? f.tech.signal : 'SYNCING';
+        const sigTerm = SIGNAL_TO_TERM[sigTone] || 'timing_signal';
+        return `
+          <div class="mix-card" style="border-left-color:${r.color};" onclick="openFundModal('${r.code}')">
+            <div class="mix-card-top">
+              <div>
+                <div style="font-weight:700; font-size:0.86rem;">${name}</div>
+                <div style="font-size:0.71rem; color:var(--text-muted);">${r.role}</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="mix-amount mono">${FinanceEngine.formatINR(r.amount)}<span style="font-size:0.68rem; color:var(--text-muted);">/mo</span></div>
+                <div style="font-size:0.68rem; color:var(--text-secondary); font-weight:700;">${r.pct}% share</div>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; font-size:0.72rem; margin-top:6px;">
+              <span class="mono pos">5Y XIRR: <strong>${fmtPct(r.xirr5)}</strong></span>
+              <span class="signal-badge signal-${sigTone}" data-term="${sigTerm}">${sigText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Tenure Sweet-Spot Matrix (5, 7, 10, 12, 15, 20 yrs)
+      const tenures = [
+        { yrs: 5, verdict: 'Short — 1 cycle (moderate risk)' },
+        { yrs: 7, verdict: 'Good — Smooths most dips' },
+        { yrs: 10, verdict: 'Strong — Compounding kicks in' },
+        { yrs: 12, verdict: 'Best Balance ⭐ (Risk vs Wealth)' },
+        { yrs: 15, verdict: 'High Wealth — 3x–5x+ multiplier' },
+        { yrs: 20, verdict: 'Max Potential — Exponential crore+ goal' },
+      ];
+
+      const tenureRows = tenures.map((t) => {
+        const p = FinanceEngine.projectSIP({
+          monthlySip: budget,
+          annualReturnPct: planningRate,
+          years: t.yrs,
+          stepUpPct: stepUp,
+        });
+        const mult = p.totalInvested > 0 ? p.estimatedValue / p.totalInvested : 0;
+        const isSweet = t.yrs === cfg.sweetYear;
+        return { ...t, ...p, mult, isSweet };
+      });
+
+      document.getElementById('mixTenureBody').innerHTML = tenureRows.map((r) => `
+        <tr class="${r.isSweet ? 'tenure-sweet-row' : ''}" style="cursor:default;">
+          <td class="mono" style="font-weight:700;">${r.yrs} Yrs${r.isSweet ? '<span class="sweet-badge">BEST</span>' : ''}</td>
+          <td class="num mono">${FinanceEngine.formatINR(r.totalInvested, true)}</td>
+          <td class="num mono pos" style="font-weight:700;">${FinanceEngine.formatINR(r.estimatedValue, true)}</td>
+          <td class="num mono" style="color:var(--accent);">${r.mult.toFixed(1)}x</td>
+          <td style="color:var(--text-secondary); font-size:0.73rem;">${r.verdict}</td>
+        </tr>
+      `).join('');
+
+      // Tenure Wealth Bar Chart
+      const ctx = document.getElementById('mixTenureChart').getContext('2d');
+      if (state.mixChart) state.mixChart.destroy();
+      state.mixChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: tenureRows.map((r) => `${r.yrs}Y`),
+          datasets: [
+            { label: 'Invested', data: tenureRows.map((r) => r.totalInvested), backgroundColor: 'rgba(56, 189, 248, 0.5)', borderRadius: 4 },
+            { label: 'Est. Gains', data: tenureRows.map((r) => r.estimatedGain), backgroundColor: 'rgba(16, 185, 129, 0.85)', borderRadius: 4 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 10 } } },
+            tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${FinanceEngine.formatINR(c.raw, true)}` } },
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { stacked: true, ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => FinanceEngine.formatINR(v, true) }, grid: { color: 'rgba(148,163,184,0.08)' } },
+          },
+        },
+      });
+    }
+
+    /* ---------- Proven Indian FinTwit, Live Timestamped Feed & X Embeds ---------- */
+    let liveSocialPosts = [];
+    let liveSocialCat = 'ALL';
+    let xWidgetsLoaded = false;
+
+    function formatRelativeIST(dateObj) {
+      if (!dateObj || Number.isNaN(dateObj.getTime())) return 'Recent';
+      const diffSec = Math.max(0, Math.floor((Date.now() - dateObj.getTime()) / 1000));
+      let rel = '';
+      if (diffSec < 3600) rel = `${Math.max(1, Math.floor(diffSec / 60))}m ago`;
+      else if (diffSec < 86400) rel = `${Math.floor(diffSec / 3600)}h ago`;
+      else if (diffSec < 86400 * 30) rel = `${Math.floor(diffSec / 86400)}d ago`;
+      else rel = `${Math.floor(diffSec / (86400 * 30))}mo ago`;
+
+      const ist = dateObj.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${rel} • ${ist} IST`;
+    }
+
+    function stripHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+
+    async function fetchLiveSocialFeeds() {
+      const grid = document.getElementById('liveSocialFeedGrid');
+      grid.innerHTML = `<div style="color:var(--text-secondary); font-size:0.84rem; padding:16px;">Syncing live timestamped posts from FinTwit educators &amp; trending Indian SIP communities...</div>`;
+
+      const rssSources = [
+        { name: 'Freefincal (@pattufreefincal)', url: 'https://freefincal.com/feed/', type: 'EXPERT' },
+        { name: 'Capitalmind (@deepakshenoy)', url: 'https://www.capitalmind.in/feed/', type: 'EXPERT' },
+        { name: 'Finshots (@finshots)', url: 'https://finshots.in/rss/', type: 'EXPERT' },
+        { name: 'India SIP News Pulse', url: 'https://news.google.com/rss/search?q=India+mutual+fund+SIP+best+funds&hl=en-IN&gl=IN&ceid=IN:en', type: 'EXPERT' },
+      ];
+
+      const redditSources = [
+        { name: 'r/IndiaInvestments (Trending SIP)', url: 'https://www.reddit.com/r/IndiaInvestments/search.json?q=SIP+mutual+fund&restrict_sr=1&sort=top&t=month&limit=8' },
+        { name: 'r/mutualfunds (Well-Liked SIPs)', url: 'https://www.reddit.com/r/mutualfunds/top.json?t=month&limit=8' },
+      ];
+
+      const collected = [];
+
+      const rssTasks = rssSources.map(async (src) => {
+        try {
+          const resp = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(src.url)}`);
+          if (!resp.ok) return;
+          const json = await resp.json();
+          if (json.status !== 'ok' || !Array.isArray(json.items)) return;
+          json.items.slice(0, 4).forEach((item) => {
+            const dt = new Date((item.pubDate || '').replace(' ', 'T') + (item.pubDate?.includes('T') ? '' : 'Z'));
+            collected.push({
+              source: src.name,
+              type: src.type,
+              title: stripHtml(item.title),
+              snippet: stripHtml(item.description || item.content || '').slice(0, 175),
+              url: item.link,
+              date: Number.isNaN(dt.getTime()) ? new Date() : dt,
+              likes: null,
+              comments: null,
+            });
+          });
+        } catch {}
+      });
+
+      const redditTasks = redditSources.map(async (src) => {
+        try {
+          const resp = await fetch(src.url);
+          if (!resp.ok) return;
+          const json = await resp.json();
+          const children = json?.data?.children || [];
+          children.forEach((c) => {
+            const d = c.data;
+            if (!d || d.stickied) return;
+            collected.push({
+              source: src.name,
+              type: 'TRENDING',
+              title: d.title,
+              snippet: (d.selftext || '').replace(/\s+/g, ' ').trim().slice(0, 175) || `Community discussion by u/${d.author}`,
+              url: `https://www.reddit.com${d.permalink}`,
+              date: new Date((d.created_utc || 0) * 1000),
+              likes: d.ups ?? d.score ?? 0,
+              comments: d.num_comments ?? 0,
+            });
+          });
+        } catch {}
+      });
+
+      await Promise.allSettled([...rssTasks, ...redditTasks]);
+
+      // Sort by newest timestamp (or highest likes when filtering trending)
+      collected.sort((a, b) => b.date.getTime() - a.date.getTime());
+      liveSocialPosts = collected;
+      renderLiveSocialFeed();
+    }
+
+    function renderLiveSocialFeed() {
+      const grid = document.getElementById('liveSocialFeedGrid');
+      let list = liveSocialPosts.filter((p) => liveSocialCat === 'ALL' || p.type === liveSocialCat);
+      if (liveSocialCat === 'TRENDING') {
+        list = [...list].sort((a, b) => (b.likes || 0) - (a.likes || 0));
+      }
+      list = list.slice(0, 12);
+
+      if (!list.length) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1; color:var(--text-secondary); font-size:0.84rem; padding:16px;">
+            Live social RSS/Reddit feeds couldn't be reached right now (network or browser privacy shield may be blocking third-party feeds).
+            Use the <strong>🔥 Trending SIP Tweets on X ↗</strong> or <strong>🕒 Latest Expert SIP Tweets on X ↗</strong> buttons above, or switch to the <strong>🧠 Core FinTwit Voices</strong> tab!
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = list.map((p) => `
+        <a class="feed-post-card" href="${p.url}" target="_blank" rel="noopener noreferrer">
+          <div class="feed-post-meta">
+            <span class="feed-source-badge ${p.type === 'TRENDING' ? 'trending' : ''}">${p.type === 'TRENDING' ? '🔥 ' : ''}${p.source}</span>
+            <span class="feed-timestamp">${formatRelativeIST(p.date)}</span>
+          </div>
+          <div class="feed-post-title">${p.title}</div>
+          <div class="feed-post-snippet">${p.snippet || 'Click to read full post & discussion...'}</div>
+          <div class="feed-post-foot">
+            <span>${p.likes !== null ? `▲ ${p.likes} upvotes • 💬 ${p.comments} comments` : 'Verified FinTwit / Publication Feed'}</span>
+            <span style="color:var(--accent); font-weight:600;">Read Full Post ↗</span>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    function renderXAccountPills() {
+      const bar = document.getElementById('xAccountPills');
+      bar.innerHTML = FINTWIT_INSIGHTS.map((v, idx) => `
+        <button class="pill ${idx === 0 ? 'active' : ''}" data-xhandle="${v.handle.replace('@', '')}">${v.handle}</button>
+      `).join('');
+    }
+
+    function loadXTimeline(handle) {
+      const container = document.getElementById('xEmbedContainer');
+      const link = document.getElementById('xDirectProfileLink');
+      link.href = `https://x.com/${handle}`;
+      link.textContent = `Open @${handle} on X ↗`;
+
+      container.innerHTML = `
+        <a class="twitter-timeline" data-theme="dark" data-chrome="noheader nofooter transparent" data-height="460" href="https://twitter.com/${handle}?ref_src=twsrc%5Etfw">
+          Loading latest tweets from @${handle}... (Click here to open @${handle} directly on X)
+        </a>
+      `;
+
+      if (!xWidgetsLoaded) {
+        xWidgetsLoaded = true;
+        const s = document.createElement('script');
+        s.src = 'https://platform.twitter.com/widgets.js';
+        s.async = true;
+        document.body.appendChild(s);
+      } else if (window.twttr && window.twttr.widgets) {
+        window.twttr.widgets.load(container);
+      }
+    }
+
+    function renderFinTwit() {
+      const grid = document.getElementById('fintwitGrid');
+      const items = FINTWIT_INSIGHTS.filter((x) => state.fintwitCat === 'ALL' || x.cat === state.fintwitCat);
+      grid.innerHTML = items.map((item) => {
+        const cleanHandle = item.handle.replace('@', '');
+        const sipTweetsUrl = `https://x.com/search?q=from%3A${cleanHandle}%20(SIP%20OR%20%22mutual%20fund%22%20OR%20Nifty)&f=live`;
+        return `
+          <article class="fintwit-card">
+            <div class="ft-head">
+              <div class="ft-author">
+                <div class="ft-avatar">${item.initials}</div>
+                <div>
+                  <span class="ft-name">${item.name}</span>
+                  <span class="ft-role">${item.role}</span>
+                </div>
+              </div>
+              <div class="ft-actions">
+                <a class="ft-handle" href="${sipTweetsUrl}" target="_blank" rel="noopener noreferrer">SIP Tweets ↗</a>
+                <a class="ft-handle" href="${item.url}" target="_blank" rel="noopener noreferrer">${item.handle} ↗</a>
+              </div>
+            </div>
+            <div class="ft-quote">“${item.quote}”</div>
+            <div class="ft-takeaway"><strong>Dashboard Action:</strong> ${item.takeaway}</div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    /* ---------- Deep-Dive Modal ---------- */
+    window.openFundModal = function (code) {
+      const f = state.funds.find((x) => x.code === code);
+      if (!f) return;
+      state.activeModalFund = f;
+      state.modalRangeYears = 5;
+      state.modalOverlayNifty = false;
+
+      const toggleBtn = document.getElementById('modalNiftyToggle');
+      toggleBtn.classList.remove('active');
+      toggleBtn.style.display = f.code === '120716' ? 'none' : 'inline-flex';
+
+      document.getElementById('modalTitle').textContent = f.shortName;
+      const sigEl = document.getElementById('modalSignal');
+      sigEl.textContent = f.tech.signal;
+      sigEl.className = `signal-badge signal-${f.tech.signalTone}`;
+      sigEl.setAttribute('data-term', SIGNAL_TO_TERM[f.tech.signalTone] || 'timing_signal');
+      document.getElementById('modalSub').textContent = `${f.schemeName} • ${f.fundHouse} • AMFI Code: ${f.code} • Exit Load: ${f.exitLoad}`;
+
+      const tiles = [
+        ['Latest NAV', `₹${f.tech.latestNav.toFixed(2)} (${f.tech.latestDateStr})`, 'nav'],
+        ['5Y SIP XIRR', fmtPct(f.sip.y5?.xirr), 'xirr'],
+        ['5Y Alpha / 3Y Beta vs Nifty', `${f.code === '120716' ? 'Benchmark' : fmtPct(f.bench?.alpha5y, true)} / ${fmtNum(f.bench?.beta3y)}`, 'alpha'],
+        ['₹10k/mo (5Y Corpus)', f.sip.y5 ? FinanceEngine.formatINR(f.sip.y5.currentValue, true) : '—', 'corpus'],
+        ['Sharpe / Sortino', `${fmtNum(f.risk.sharpe)} / ${fmtNum(f.risk.sortino)}`, 'sortino'],
+        ['3Y Volatility / Max DD', `${fmtPct(f.risk.volatility)} / ${fmtPct(f.risk.maxDrawdown)}`, 'volatility'],
+        ['52W High / Low', `₹${f.tech.high52.toFixed(1)} / ₹${f.tech.low52.toFixed(1)}`, 'high_low_52w'],
+        ['14D RSI / 200-DMA', `${fmtNum(f.tech.rsi14, 1)} / ${f.tech.dma200 ? '₹' + f.tech.dma200.toFixed(1) : '—'}`, 'rsi'],
+      ];
+      document.getElementById('modalStatsGrid').innerHTML = tiles.map(([k, v, term]) => `
+        <div class="stat-tile" data-term="${term}">
+          <label><span class="jargon">${k} <span class="jargon-icon">?</span></span></label>
+          <strong class="mono">${v}</strong>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('#modalRangePills .pill').forEach((p) => {
+        p.classList.toggle('active', Number(p.dataset.range) === 5);
+      });
+
+      renderModalNavChart(f, 5);
+      renderModalDayChart(f);
+      renderModalSeasonality(f);
+
+      const links = MFDataAPI.buildPortalLinks(f.schemeName, f.code);
+      document.getElementById('modalPortalLinks').innerHTML = `
+        <a class="portal-link-btn" href="${links.valueResearch}" target="_blank" rel="noopener">Value Research ↗</a>
+        <a class="portal-link-btn" href="${links.morningstar}" target="_blank" rel="noopener">Morningstar India ↗</a>
+        <a class="portal-link-btn" href="${links.groww}" target="_blank" rel="noopener">Groww Factsheet ↗</a>
+        <a class="portal-link-btn" href="${links.kuvera}" target="_blank" rel="noopener">Kuvera Direct ↗</a>
+        <a class="portal-link-btn" href="${links.mfapi}" target="_blank" rel="noopener">Raw AMFI JSON ↗</a>
+      `;
+
+      document.getElementById('fundModal').classList.add('open');
+    };
+
+    function renderModalNavChart(f, years) {
+      const latest = f.series[f.series.length - 1];
+      const cutoff = new Date(latest.ts);
+      cutoff.setUTCFullYear(cutoff.getUTCFullYear() - years);
+      const cutTs = cutoff.getTime();
+      const ctx = document.getElementById('modalNavChart').getContext('2d');
+      if (state.modalNavChart) state.modalNavChart.destroy();
+
+      if (state.modalOverlayNifty && state.niftyFund && f.code !== '120716') {
+        document.getElementById('modalChartTitle').textContent = `₹100 Indexed: ${f.shortName} vs Nifty 50`;
+        const fIdx = buildIndexedSeries(f, cutTs, 100);
+        const nIdx = buildIndexedSeries(state.niftyFund, cutTs, 100);
+        const nMap = new Map(nIdx.map((p) => [p.dateStr, p.val]));
+        const aligned = fIdx.filter((p) => nMap.has(p.dateStr));
+        const step = Math.max(1, Math.floor(aligned.length / 140));
+        const sampled = aligned.filter((_, idx) => idx % step === 0 || idx === aligned.length - 1);
+
+        state.modalNavChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: sampled.map((p) => p.dateStr),
+            datasets: [
+              { label: `${f.shortName} (₹100 Base)`, data: sampled.map((p) => Number(p.val.toFixed(1))), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, borderWidth: 2.2, pointRadius: 0, tension: 0.15 },
+              { label: 'Nifty 50 Benchmark (₹100 Base)', data: sampled.map((p) => Number(nMap.get(p.dateStr).toFixed(1))), borderColor: '#facc15', borderDash: [5, 4], fill: false, borderWidth: 2, pointRadius: 0, tension: 0.15 },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+            scales: {
+              x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+              y: { ticks: { color: '#64748b', font: { size: 10 }, callback: (v) => `₹${v}` }, grid: { color: 'rgba(148,163,184,0.08)' } },
+            },
+          },
+        });
+        return;
+      }
+
+      document.getElementById('modalChartTitle').innerHTML = `Historical <span class="jargon" data-term="nav">NAV</span> &amp; <span class="jargon" data-term="dma200">200-DMA</span>`;
+      const dmaArr = [];
+      let sum = 0;
+      for (let i = 0; i < f.series.length; i++) {
+        sum += f.series[i].nav;
+        if (i >= 200) sum -= f.series[i - 200].nav;
+        dmaArr.push(i >= 199 ? sum / 200 : null);
+      }
+
+      const filtered = [];
+      for (let i = 0; i < f.series.length; i++) {
+        if (f.series[i].ts >= cutTs) {
+          filtered.push({ dateStr: f.series[i].dateStr, nav: f.series[i].nav, dma: dmaArr[i] });
+        }
+      }
+      const step = Math.max(1, Math.floor(filtered.length / 140));
+      const sampled = filtered.filter((_, idx) => idx % step === 0 || idx === filtered.length - 1);
+
+      state.modalNavChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sampled.map((p) => p.dateStr),
+          datasets: [
+            { label: 'NAV (₹)', data: sampled.map((p) => p.nav), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.15 },
+            { label: '200-DMA (₹)', data: sampled.map((p) => p.dma), borderColor: '#f59e0b', borderDash: [5, 4], fill: false, borderWidth: 1.6, pointRadius: 0, tension: 0.15 },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.08)' } },
+          },
+        },
+      });
+    }
+
+    function renderModalDayChart(f) {
+      const analysis = f.sipDayAnalysis;
+      document.getElementById('modalBestDayLabel').textContent =
+        `Best: ${ordinal(analysis.bestDay)} (${fmtPct(analysis.bestXirr)})`;
+
+      const ctx = document.getElementById('modalDayChart').getContext('2d');
+      if (state.modalDayChart) state.modalDayChart.destroy();
+      state.modalDayChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: analysis.dayResults.map((d) => d.day),
+          datasets: [
+            {
+              label: `${analysis.horizon}Y SIP XIRR %`,
+              data: analysis.dayResults.map((d) => Number(d.xirr.toFixed(2))),
+              backgroundColor: analysis.dayResults.map((d) => d.day === analysis.bestDay ? '#10b981' : 'rgba(56, 189, 248, 0.45)'),
+              borderRadius: 4,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { display: false } },
+            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.08)' }, suggestedMin: Math.max(0, Math.floor((analysis.worstXirr ?? 10) - 0.5)) },
+          },
+        },
+      });
+    }
+
+    function renderModalSeasonality(f) {
+      const s = f.seasonality;
+      document.getElementById('modalSeasonHint').textContent =
+        `Best dip month: ${s.bestAccumMonth.month} (${fmtPct(s.bestAccumMonth.avgReturn, true)}) • Strongest rally: ${s.strongestMonth.month} (${fmtPct(s.strongestMonth.avgReturn, true)})`;
+
+      document.getElementById('modalSeasonality').innerHTML = s.stats.map((m) => {
+        const bg =
+          m.avgReturn >= 1.8 ? 'rgba(16,185,129,0.28)' :
+          m.avgReturn >= 0 ? 'rgba(16,185,129,0.12)' :
+          m.avgReturn <= -1 ? 'rgba(244,63,94,0.28)' : 'rgba(244,63,94,0.12)';
+        const cls = m.avgReturn >= 0 ? 'pos' : 'neg';
+        return `
+          <div class="season-cell" style="background:${bg};">
+            <span>${m.month}</span>
+            <strong class="mono ${cls}">${fmtPct(m.avgReturn, true)}</strong>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ---------- Beginner's Glossary Modal ---------- */
+    function renderGlossaryModal() {
+      const q = document.getElementById('glossarySearch').value.trim().toLowerCase();
+      const grid = document.getElementById('glossaryGrid');
+      const items = Object.values(GLOSSARY).filter((item) => {
+        const matchCat = state.glossaryCat === 'ALL' || item.cat === state.glossaryCat;
+        const matchQ = !q || item.term.toLowerCase().includes(q) || item.full.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+        return matchCat && matchQ;
+      });
+
+      if (!items.length) {
+        grid.innerHTML = `<div style="color:var(--text-muted); padding:20px;">No matching financial terms found.</div>`;
+        return;
+      }
+
+      grid.innerHTML = items.map((item) => `
+        <div class="glossary-card">
+          <div class="tt-header">
+            <span class="tt-term">${item.term}</span>
+            <span class="tt-cat">${item.cat}</span>
+          </div>
+          <div class="tt-full">${item.full}</div>
+          <div class="tt-desc">${item.desc}</div>
+          <div class="tt-example"><strong>Simple Example:</strong> ${item.example}</div>
+        </div>
+      `).join('');
+    }
+
+    function openGlossary() {
+      renderGlossaryModal();
+      document.getElementById('glossaryModal').classList.add('open');
+    }
+
+    /* ---------- Real-Time Feed Loader ---------- */
+    async function loadAllFunds(forceRefresh = false) {
+      const loadingBar = document.getElementById('loadingBar');
+      const loadingText = document.getElementById('loadingText');
+      loadingBar.classList.add('visible');
+
+      const targets = [
+        ...MFDataAPI.TOP_20_CURATED,
+        ...state.customCodes.map((c) => ({ code: c })),
+      ];
+
+      let completed = 0;
+      const results = [];
+
+      // Fetch concurrently in batches of 5 for snappy loading of all 20 funds
+      for (let i = 0; i < targets.length; i += 5) {
+        const batch = targets.slice(i, i + 5);
+        const batchRes = await Promise.allSettled(
+          batch.map(async (item) => {
+            const payload = await MFDataAPI.fetchScheme(item.code, forceRefresh);
+            completed++;
+            loadingText.textContent = `Synced ${completed} / ${targets.length} AMFI schemes in real time...`;
+            return FinanceEngine.analyzeFund(payload.meta, payload.data, item);
+          })
+        );
+        for (const r of batchRes) {
+          if (r.status === 'fulfilled' && r.value) results.push(r.value);
+        }
+      }
+
+      if (results.length) {
+        state.funds = results;
+        state.niftyFund = results.find((f) => f.code === '120716') || null;
+        if (state.niftyFund) {
+          for (const f of state.funds) {
+            f.bench = FinanceEngine.computeBenchmarkStats(f, state.niftyFund);
+          }
+        }
+        renderTicker();
+        renderKPIs();
+        renderTable();
+        populateBenchDropdowns();
+        renderMixedPortfolio();
+        renderTimingCards();
+        populateCalcDropdown();
+
+        const istTime = new Date().toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        document.getElementById('lastUpdated').textContent = `Live Synced (${results.length} Funds): ${istTime} IST`;
+        loadingBar.classList.remove('visible');
+      } else {
+        loadingText.textContent = 'Unable to reach api.mfapi.in right now. Check internet connection and click "Sync Live NAVs".';
+      }
+    }
+
+    function scheduleAutoRefresh() {
+      if (state.autoTimer) clearInterval(state.autoTimer);
+      const ms = Number(document.getElementById('refreshInterval').value);
+      if (ms > 0) state.autoTimer = setInterval(() => loadAllFunds(true), ms);
+    }
+
+    /* ---------- Event Wiring ---------- */
+    document.getElementById('refreshBtn').addEventListener('click', () => loadAllFunds(true));
+    document.getElementById('refreshInterval').addEventListener('change', scheduleAutoRefresh);
+    document.getElementById('openGlossaryBtn').addEventListener('click', openGlossary);
+    document.getElementById('bannerGlossaryBtn').addEventListener('click', openGlossary);
+
+    document.getElementById('glossaryClose').addEventListener('click', () => {
+      document.getElementById('glossaryModal').classList.remove('open');
+    });
+    document.getElementById('glossaryModal').addEventListener('click', (e) => {
+      if (e.target.id === 'glossaryModal') document.getElementById('glossaryModal').classList.remove('open');
+    });
+    document.getElementById('glossarySearch').addEventListener('input', renderGlossaryModal);
+    document.getElementById('glossaryCatPills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn) return;
+      document.querySelectorAll('#glossaryCatPills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.glossaryCat = btn.dataset.gcat;
+      renderGlossaryModal();
+    });
+
+    // Category filters
+    document.getElementById('categoryFilters').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn) return;
+      document.querySelectorAll('#categoryFilters .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.activeCategory = btn.dataset.cat;
+      renderTable();
+    });
+
+    // Sortable table headers
+    document.querySelectorAll('thead th[data-sort]').forEach((th) => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (state.sortKey === key) state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+        else { state.sortKey = key; state.sortDir = key === 'name' ? 'asc' : 'desc'; }
+        renderTable();
+      });
+    });
+
+    // Live AMFI scheme search
+    let searchDebounce = null;
+    const searchInput = document.getElementById('schemeSearch');
+    const searchDropdown = document.getElementById('searchDropdown');
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      const q = searchInput.value.trim();
+      if (q.length < 2) { searchDropdown.classList.remove('open'); return; }
+      searchDebounce = setTimeout(async () => {
+        searchDropdown.innerHTML = `<div class="search-result-item">Searching AMFI database...</div>`;
+        searchDropdown.classList.add('open');
+        try {
+          const hits = await MFDataAPI.searchSchemes(q);
+          if (!hits.length) {
+            searchDropdown.innerHTML = `<div class="search-result-item">No matching schemes found.</div>`;
+            return;
+          }
+          searchDropdown.innerHTML = hits.map((h) => `
+            <div class="search-result-item" data-code="${h.schemeCode}">
+              <span>${h.schemeName}</span>
+              <span class="search-result-code mono">+ Add #${h.schemeCode}</span>
+            </div>
+          `).join('');
+        } catch {
+          searchDropdown.innerHTML = `<div class="search-result-item">Search unavailable offline.</div>`;
+        }
+      }, 320);
+    });
+
+    searchDropdown.addEventListener('click', async (e) => {
+      const item = e.target.closest('.search-result-item[data-code]');
+      if (!item) return;
+      const code = item.dataset.code;
+      searchDropdown.classList.remove('open');
+      searchInput.value = '';
+      if (state.funds.some((f) => f.code === code)) {
+        openFundModal(code);
+        return;
+      }
+      state.customCodes.push(code);
+      await loadAllFunds(false);
+      openFundModal(code);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrapper')) searchDropdown.classList.remove('open');
+    });
+
+    // SIP Calculator inputs
+    document.getElementById('calcFundSelect').addEventListener('change', (e) => {
+      const opt = e.target.selectedOptions[0];
+      if (opt && opt.dataset.rate) {
+        const rate = Math.min(32, Math.max(6, Math.round(parseFloat(opt.dataset.rate) * 2) / 2));
+        document.getElementById('calcRate').value = rate;
+      }
+      updateSIPCalculator();
+    });
+    ['calcMonthly', 'calcYears', 'calcRate', 'calcStepUp'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateSIPCalculator);
+    });
+
+    // Fund Modal controls
+    document.getElementById('modalClose').addEventListener('click', () => {
+      document.getElementById('fundModal').classList.remove('open');
+    });
+    document.getElementById('fundModal').addEventListener('click', (e) => {
+      if (e.target.id === 'fundModal') document.getElementById('fundModal').classList.remove('open');
+    });
+    document.getElementById('modalRangePills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn || !state.activeModalFund) return;
+      document.querySelectorAll('#modalRangePills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.modalRangeYears = Number(btn.dataset.range);
+      renderModalNavChart(state.activeModalFund, state.modalRangeYears);
+    });
+    document.getElementById('modalNiftyToggle').addEventListener('click', (e) => {
+      if (!state.activeModalFund) return;
+      state.modalOverlayNifty = !state.modalOverlayNifty;
+      e.currentTarget.classList.toggle('active', state.modalOverlayNifty);
+      renderModalNavChart(state.activeModalFund, state.modalRangeYears);
+    });
+
+    // Nifty 50 Benchmark Overlay controls
+    document.getElementById('benchFund1').addEventListener('change', renderBenchmarkOverlay);
+    document.getElementById('benchFund2').addEventListener('change', renderBenchmarkOverlay);
+    document.getElementById('benchRangePills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn) return;
+      document.querySelectorAll('#benchRangePills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.benchYears = Number(btn.dataset.brange);
+      renderBenchmarkOverlay();
+    });
+
+    // FinTwit View Tabs (Live Timestamped Feed / Live X Timelines / Core Voices)
+    document.getElementById('fintwitViewTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn) return;
+      document.querySelectorAll('#fintwitViewTabs .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.ftview;
+
+      document.getElementById('ftViewLive').style.display = view === 'live' ? 'block' : 'none';
+      document.getElementById('ftViewXEmbed').style.display = view === 'xembed' ? 'block' : 'none';
+      document.getElementById('ftViewVoices').style.display = view === 'voices' ? 'block' : 'none';
+
+      document.getElementById('liveFeedFilters').style.display = view === 'live' ? 'flex' : 'none';
+      document.getElementById('fintwitFilters').style.display = view === 'voices' ? 'flex' : 'none';
+
+      if (view === 'xembed' && !document.getElementById('xEmbedContainer').innerHTML.trim()) {
+        loadXTimeline('iRadhikaGupta');
+      }
+    });
+
+    // Live Social Feed filter pills & sync button
+    document.getElementById('liveFeedFilters').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill[data-lfcat]');
+      if (!btn) return;
+      document.querySelectorAll('#liveFeedFilters .pill[data-lfcat]').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      liveSocialCat = btn.dataset.lfcat;
+      renderLiveSocialFeed();
+    });
+    document.getElementById('refreshSocialBtn').addEventListener('click', fetchLiveSocialFeeds);
+
+    // X / Twitter Account Pill Switcher
+    document.getElementById('xAccountPills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill[data-xhandle]');
+      if (!btn) return;
+      document.querySelectorAll('#xAccountPills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      loadXTimeline(btn.dataset.xhandle);
+    });
+
+    // FinTwit Insights filter pills
+    document.getElementById('fintwitFilters').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill');
+      if (!btn) return;
+      document.querySelectorAll('#fintwitFilters .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.fintwitCat = btn.dataset.ftcat;
+      renderFinTwit();
+    });
+
+    // ₹10,000/Month Mixed SIP Blueprint controls
+    document.getElementById('mixProfileTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill[data-mix]');
+      if (!btn) return;
+      document.querySelectorAll('#mixProfileTabs .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.mixProfile = btn.dataset.mix;
+      renderMixedPortfolio();
+    });
+    document.getElementById('mixBudgetPills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill[data-budget]');
+      if (!btn) return;
+      document.querySelectorAll('#mixBudgetPills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.mixBudget = Number(btn.dataset.budget);
+      renderMixedPortfolio();
+    });
+    document.getElementById('mixStepUpPills').addEventListener('click', (e) => {
+      const btn = e.target.closest('.pill[data-step]');
+      if (!btn) return;
+      document.querySelectorAll('#mixStepUpPills .pill').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      state.mixStepUp = Number(btn.dataset.step);
+      renderMixedPortfolio();
+    });
+
+    // Boot
+    renderPortals();
+    renderFinTwit();
+    renderXAccountPills();
+    fetchLiveSocialFeeds();
+    loadAllFunds(false);
+    scheduleAutoRefresh();
+  </script>
+</body>
+</html>
